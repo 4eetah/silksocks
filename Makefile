@@ -1,5 +1,5 @@
-SRCS := main.c thpool.c error.c
-HDRS := thpool.h error.h
+SRCS := main.c thpool.c error.c socks.c
+HDRS := thpool.h error.h socks.h
 OBJS := $(SRCS:.c=.o)
 OUT := silksocks
 LIBS := -pthread

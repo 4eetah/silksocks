@@ -10,6 +10,12 @@
 #include <string.h>
 
 #define MAXLINE 4096
+#define DEBUG 1
+#ifdef DEBUG
+#define do_debug(...) err_msg(__VA_ARGS__)
+#else
+#define do_debug(...)
+#endif
 
 void err_ret(const char *fmt, ...);
 void err_sys(const char *fmt, ...);

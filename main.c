@@ -9,37 +9,39 @@
 #include <fcntl.h>
 #include <sys/epoll.h>
 #include <string.h>
+#include <pthread.h>
 #include "thpool.h"
+#include "error.h"
 
 #define SRV_PORT 1080
 #define LISTENQ 1024
 #define MAX_EVENTS 10
 #define MAX_LINES 4096
 
-#define DEBUG 1
-#ifdef DEBUG
-#define do_debug(...) err_msg(__VA_ARGS__)
-#else
-#define do_debug(...)
-#endif
-
 void str_echo(int fd);
 void do_accept(int fd);
 int set_nonblock(int fd);
 int bind_and_listen();
+void do_socks(int fd);
+void do_socks4(int fd);
+void do_socks5(int fd);
 
 /* epoll fd handle */
 static int epollfd;
 
+/* may be useful for debugging */
 void str_echo(int fd)
 {
     ssize_t n;
     char buf[MAX_LINES];
 
 again:
-    while ((n = recv(fd, buf, MAX_LINES, 0)) > 0)
+    while ((n = recv(fd, buf, MAX_LINES, 0)) > 0) {
+        do_debug("str_echo(pid=%ld): %d bytes read", pthread_self(), n);
         if (send(fd, buf, n, 0) == -1)
             break;
+        do_debug("str_echo(pid=%ld): %d bytes written", pthread_self(), n);
+    }
     if (n < 0 && errno == EINTR)
         goto again;
     else if (n < 0 && errno == EAGAIN)
@@ -70,7 +72,7 @@ void do_accept(int listen_fd)
             else
                 err_ret("accept on new connection failed");
         }
-        do_debug("new client fd(%d) %s", client_fd, inet_ntoa(addr.sin_addr));
+        do_debug("new client fd(%d) %s:%d", client_fd, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
 
         set_nonblock(client_fd);
         ev.data.fd = client_fd;
@@ -96,6 +98,7 @@ int bind_and_listen()
 {
     struct sockaddr_in sin;
     int listen_fd;
+    int on;
 
     if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         err_sys("failed to create listen fd");
@@ -104,6 +107,10 @@ int bind_and_listen()
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = htonl(INADDR_ANY);
     sin.sin_port = htons(SRV_PORT);
+
+    on = 1;
+    if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1)
+        err_sys("setsockopt SOL_SOCKET failed");
 
     if (bind(listen_fd, (struct sockaddr*)&sin, sizeof(sin)) == -1)
         err_sys("failed to bind listen fd");
@@ -156,15 +163,17 @@ int main(int argc, char **argv)
 
         for (i = 0; i < ready; ++i) {
             
-            do_debug("  fd=%d; events: %s%s%s", evlist[i].data.fd,
+            do_debug("  fd=%d; events: %s%s%s%s", evlist[i].data.fd,
                     (evlist[i].events & EPOLLIN) ? "EPOLLIN " : "",
                     (evlist[i].events & EPOLLHUP) ? "EPOLLHUP " : "",
+                    (evlist[i].events & EPOLLRDHUP) ? "EPOLLRDHUP " : "",
                     (evlist[i].events & EPOLLERR) ? "EPOLLERR " : "");
 
             if (evlist[i].data.fd == listen_fd) {
                 do_accept(listen_fd);
             } else if (evlist[i].events & EPOLLIN) {
-                str_echo(evlist[i].data.fd);
+                do_socks5(evlist[i].data.fd);
+                //str_echo(evlist[i].data.fd);
             } else if (evlist[i].events & (EPOLLERR | EPOLLHUP)) {
                 do_debug("closing fd %d", evlist[i].data.fd);
                 if (close(evlist[i].data.fd) == -1)
@@ -175,7 +184,6 @@ int main(int argc, char **argv)
         }
     }
     
-    free(evlist);
     close(listen_fd);
 
     return 0;
