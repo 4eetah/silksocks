@@ -1,10 +1,9 @@
 silksocks
 =========
-Multithreaded epoll based SOCKS protocol implementation
+Multithreaded SOCKS proxy manager
+The proxy manager is a socks proxy itself =)
 
-The main planned features are:
-- support both SOCKS4/5 protocols
-- encryption support
-- proxy chaining
-- pull available proxies from db/put statistics into db
+The main things are:
+- ability to use db as a storage for info about further forwarding and authentication to proxy
 - daemon for constantly updating db with available proxies + proxies info
+- threadpool, cache, fast non-blocking forwarding
