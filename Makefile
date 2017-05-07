@@ -13,4 +13,4 @@ $(OUT): $(OBJS) $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LIBS)
 
 clean:
-	$(RM) $(OUT) $(OBJS)
+	$(RM) $(OUT) *.o 

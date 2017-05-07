@@ -1,20 +1,14 @@
 #ifndef ERROR_H
 #define ERROR_H
 
-#include <stdarg.h>
-#include <syslog.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "common.h"
 
 #define MAXLINE 4096
-#define DEBUG 1
+
 #ifdef DEBUG
-#define do_debug(...) err_msg(__VA_ARGS__)
+#define do_debug(fmt, ...) fprintf(stderr, "%s (%s): " fmt "\n", gf_time(), __func__, ##__VA_ARGS__)
 #else
-#define do_debug(...)
+#define do_debug(fmt, ...)
 #endif
 
 void err_ret(const char *fmt, ...);

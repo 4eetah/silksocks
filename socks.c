@@ -1,136 +1,222 @@
 #include "socks.h"
-#include "error.h"
+#include "common.h"
 
-int check_socks5_initpkt_sanity(char *buf, size_t n)
+/* Methods:
+o  X'00' NO AUTHENTICATION REQUIRED
+o  X'01' GSSAPI
+o  X'02' USERNAME/PASSWORD
+o  X'03' to X'7F' IANA ASSIGNED
+o  X'80' to X'FE' RESERVED FOR PRIVATE METHODS
+o  X'FF' NO ACCEPTABLE METHODS
+*/
+
+/* Reply field:
+o  X'00' succeeded
+o  X'01' general SOCKS server failure
+o  X'02' connection not allowed by ruleset
+o  X'03' Network unreachable
+o  X'04' Host unreachable
+o  X'05' Connection refused
+o  X'06' TTL expired
+o  X'07' Command not supported
+o  X'08' Address type not supported
+o  X'09' to X'FF' unassigned
+*/
+
+/* user-ip-port where ip is ipv4 in dotted format */
+static int strip_redirectaddr(unsigned char *login, uint32_t *redip, unsigned short *redport)
 {
-    return (n >= 3) && (buf[0] == 0x05) && (n == buf[1]+2);
+    char ipbuf[16], portbuf[6];
+    struct sockaddr_in addr;
+    char err;
+
+    if (!(login = strtok(login, "-")))
+        return 0;
+    if (!(login = strtok(NULL, "-")))
+        return 0;
+    strncpy(ipbuf, login, 15);
+    ipbuf[15] = 0;
+
+    if (!(login = strtok(NULL, "-")))
+        return 0;
+    strncpy(portbuf, login, 5);
+    chainport[5] = 0;
+
+    if (inet_pton(AF_INET, ipbuf, &addr.sin_addr) != 1)
+        return 0;
+    
+    addr.sin_port = strtol(portbuf, &err, 10);
+    if (*err)
+        return 0;
+
+    *redip = ntohl(addr.sin_addr.s_addr);
+    *redport = ntohs(addr.sin_port);
+
+    return 1;
 }
 
-int check_socks5_authpkt_sanity(char *buf, size_t n)
+static int socks5_choosemethod(int clientfd)
 {
-    return (n >= 5) && (buf[0] == 0x01) && (buf[1]+4 <= n) && (buf[1]+buf[buf[1]+2]+3 == n);
-}
-
-int check_socks5_cmdpkt_sanity(char *buf, size_t n)
-{
-    return (buf[0] == 0x05) && (buf[1]==0x01 || buf[1]==0x02 || buf[1]==0x03) &&
-            (buf[2] == 0x00) && (buf[3]=0x01 || buf[3]==0x03 || buf[3]==0x04);
-}
-
-void do_socks5(int client_fd)
-{
-    char buf[BUFSIZE];
-    char login[255], passwd[255];
+    uint8_t b, a;
     int n;
-    uint8_t i,j;
-    int srvneedauth=1;
-    int clihaveauth=0;
-    struct sockaddr_in dst;
-    int cmd;
+    int clipasswd = 0;
 
-    if ((n = recv(client_fd, buf, BUFSIZE, 0)) == -1) {
-        err_ret("fd(%d),pid(%ld): recv failed", client_fd, pthread_self());
-        return;
-    }
-    if (!check_socks5_initpkt_sanity(buf, n)) {
-        do_debug("fd(%d),pid(%ld): malformed pkt", client_fd, pthread_self());
-        close(client_fd);
-        return;
-    }
-    /* TODO: check db for the type of a auth/noauth the given client client is configured to used */
+    /* version */
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_L], 0)) <= 0)
+        return -1;
+    if (b != 0x05)
+        return -1;
 
-    for (i=buf[1], j=2; j < n && i; j++, i--) {
-        if (buf[j] == 0x02) {
-            clihaveauth=1;
-            break;
-        }
+    /* methods */
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+        return -1;
+    while (b--) {
+        if ((n = readn_timeo(clientfd, &a, 1, timeo[BYTE_S], 0)) <= 0)
+            return -1;
+        if (a == 0x02 && NEEDAUTH)
+            clipasswd = 0x02;
     }
-    buf[0] = 0x05;
-    if (srvneedauth) {
-        if (!clihaveauth)
-            buf[1] = 0xFF;
-        else
-            buf[1] = 0x02;
-    } else {
-        buf[1] = 0x00;
+    if (NEEDAUTH && !clipasswd)
+        clipasswd = 0xFF;
+
+    return clipasswd;
+}
+
+/* get socks5 user/login from a client */
+static int socks5_auth(int clientfd, unsigned char login[256], unsigned char passwd[256])
+{
+    int n;
+    uint8_t b;
+    char buf[2];
+
+    /* version */
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_L], 0)) <= 0)
+        return -1;
+    if (b != 0x01)
+        return -1;
+
+    /* user */ 
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+        return -1;
+    if ((n = readn_timeo(clientfd, login, b, timeo[STRING_S], 0)) <= 0) 
+        return -1;
+    login[n] = 0;
+
+    /* passwd */
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+        return -1;
+    if ((n = readn_timeo(clientfd, passwd, b, timeo[STRING_S], 0)) <= 0)
+        return -1;
+    passwd[n] = 0;
+
+    /* success */
+    buf[0] = 1; buf[1] = 0;
+    if ((n = writen_timeo(clientfd, buf, 2, timeo[STRING_S], 0)) != 2)
+        return -1;
+
+    return 0;
+}
+
+static int check_credentials(const char *user, const char *passwd)
+{
+    return 1;
+}
+
+int socks5_negotiate(int clientfd)
+{
+    int n;
+    uint8_t b, cmd, atype;
+    unsigned char buf[256];
+    struct addrinfo *addrin;
+    struct sockaddr_storage sstorage;
+
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+        return 1;
+    if (b != 0x05)
+        return 1;
+    
+    /* cmd */
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+        return 1;
+    cmd = b;
+    if (cmd < 0x01 || cmd > 0x03) 
+        return 7;
+   
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+        return 1; 
+
+    if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+        return 1; 
+    atype = b;
+
+    switch (atype) {
+    case (0x01):
+        if ((n = readn_timeo(clientfd, buf, 4, timeo[BYTE_L], 0)) <= 0)
+            return 1;
+        ((struct sockaddr_in)sstorage).sin_family = AF_INET;
+        ((struct sockaddr_in)sstorage).sin_addr.s_addr = *(uint32_t*)buf;
+
+    case (0x03):
+        if ((n = readn_timeo(clientfd, &b, 1, timeo[BYTE_S], 0)) <= 0)
+            return 1;
+        if ((n = readn_timeo(clientfd, buf, b, timeo[BYTE_L], 0)) <= 0)
+            return 1;
+        buf[n] = 0;
+        if ((addrin = host_serv(buf, NULL, AF_INET, SOCK_STREAM)) == NULL) 
+            return 4;
+        
+        ((struct sockaddr_in)sstorage).sin_family = addrin->ai_family;
+        ((struct sockaddr_in)sstorage).sin_addr.s_addr = ((struct sockaddr_in*)addrin->ai_addr)->sin_addr.s_addr;
+        freeaddrinfo(addrin);
+
+    case (0x04):
+        if ((n = readn_timeo(clientfd, buf, 16, timeo[BYTE_L], 0)) <= 0)
+            return 1;
+        ((struct sockaddr_in6)sstorage).sin6_family = AF_INET6;
+        *(uint64_t*)(((struct sockaddr_in6)sstorage).sin6_addr.s6_addr) = *(uint64_t*)buf;
+        *(uint64_t*)(((struct sockaddr_in6)sstorage).sin6_addr.s6_addr + 8) = *(uint64_t*)&buf[8];
+
+    default:
+        return 8;
     }
     
-    if (send(client_fd, buf, 2) == -1) {
-        err_ret("fd(%d),pid(%d): write failed", client_fd, pthread_self());
-        return;
+    if ((n = readn_timeo(clientfd, buf, 2, timeo[BYTE_S], 0)) <= 0)
+        return 1;
+
+    /* port... */
+}
+
+int socks5_run(int clientfd)
+{
+    unsigned char buf[BUFSIZE];
+    unsigned char login[256], passwd[256];
+    int n;
+    uint8_t method;
+    uint32_t redip;
+    unsigned short redport;
+
+    if ((method = socks5_choosemethod(clientfd)) == -1)
+        goto error;
+
+    buf[0] = 0x05;
+    buf[1] = method;
+    if ((n = writen_timeo(clientfd, buf, 2, timeo[STRING_S], 0)) != 2)
+        goto error;
+
+    /* authentication */
+    if (method == 0x02) {
+        if (socks5_auth(clientfd, login, passwd) == -1)
+            goto error;
+        if (!strip_redirectaddr(login, &redip, &redport))
+            goto error;
+    } else if (method && method != 0xFF) {
+        do_debug("custom socks5 method? %d", method);
     }
 
-    if (srvneedauth) {
-        if ((n = recv(client_fd, buf, BUFSIZE, 0)) == -1) {
-            err_ret("fd(%d),pid(%ld): recv authentication failed", client_fd, pthread_self());
-            return;
-        }
-        if (!check_socks5_authpkt_sanity(buf, n)) {
-            do_debug("fd(%d),pid(%ld): malformed pkt", client_fd, pthread_self());
-            close(client_fd);
-            return;
-        }
-        memcpy(login, buf+2, buf[1]);
-        memcpy(passwd, buf+buf[1]+3, buf[buf[1]+2]);
+    /* request */
+    
 
-        /* check login/passwd */
-        int authfailure=0;
-        if (1) {
-            buf[0] = 0x01;
-            buf[1] = 0x00;
-        } else {
-            authfailure=1;
-            buf[0] = 0x01;
-            buf[1] = 0xFF;
-        }
-
-        if ((n = send(client_fd, buf, 2, 0)) == -1) {
-            err_ret("fd(%d),pid(%ld): send failed", client_fd, pthread_self());
-            return;
-        }
-
-        if (authfailure) {
-            do_debug("auth failure");
-            close(client_fd);
-            return;
-        }
-    }
-
-    if ((n = recv(client_fd, buf, 4)) == -1) {
-        err_ret("fd(%d),pid(%ld): recv cmd failed", client_fd, pthread_self());
-        return;
-    }
-
-    if (!check_socks5_cmdpkt_sanity(buf, n)) {
-        do_debug("fd(%d),pid(%ld): malformed pkt", client_fd, pthread_self());
-        close(client_fd);
-    }
-
-    cmd = buf[1];
-    memset(&dst, 0, sizeof(dst));
-    switch (buf[3]) {
-    case 0x01:
-        dst.sin_family = AF_INET;
-        if ((n=recv(client_fd, &dst.sin_addr.s_addr, 4)) == -1) {
-            err_ret("fd(%d),pid(%ld): recv cmd pkt failed", client_fd, pthread_self());
-            return;
-        }
-        if ((n=recv(client_fd, &dst.sin_port, 2)) == -1) {
-            err_ret("fd(%d),pid(%ld): recv cmd pkt failed", client_fd, pthread_self());
-            return;
-        }
-
-    case 0x03:
-        if ((n=recv(client_fd, j, 1)) == -1) {
-            err_ret("fd(%d),pid(%ld): recv cmd pkt failed", client_fd, pthread_self());
-            return;
-        }
-
-    case 0x04:
-    default:
-
-    }
-
-    return;
-
+error:
+    close(clientfd);
+    exit(1);
 }
