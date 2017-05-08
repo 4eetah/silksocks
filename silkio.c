@@ -1,5 +1,17 @@
 #include "common.h"
 
+int setnonblock(int fd)
+{
+    int val;
+
+    if ((val = fcntl(fd, F_GETFL, 0)) == -1)
+        return -1;
+
+    if (fcntl(fd, F_SETFL, val | O_NONBLOCK) == -1)
+        return -1;
+    return 0;
+}
+
 int setrcvtimeo(int fd, long sec, long usec)
 {
     struct timeval timer;

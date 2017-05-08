@@ -1,13 +1,14 @@
 #include "common.h"
 
 /* init threadpoll, db, cache etc */
+threadpool thpool;
 void server_init()
 {
-    //threadpool thpool;
-    //thpool = thpool_init(NR_THREADS);
-    //if (!thpool)
-    //    err_sys("threadpool init failed");
+    thpool = thpool_init(NR_THREADS);
+    if (!thpool)
+        err_quit("threadpool init failed");
 
+    signal(SIGPIPE, SIG_IGN);
 }
 
 int main(int argc, char **argv)
@@ -17,7 +18,7 @@ int main(int argc, char **argv)
     struct sockaddr_storage cliaddr;
 
     server_init();
-    listenfd = tcp_listen(NULL, SRV_PORT, NULL);
+    listenfd = tcp_listen(NULL, "1080", NULL);
     
     for (;;) {
         clilen = sizeof(cliaddr);
@@ -25,17 +26,10 @@ int main(int argc, char **argv)
             if (errno == EINTR)
                 continue;
             else
-                err_sys("accept");
-        }
-        if (setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, &timer, sizeof(timer)) == -1) {
-            err_ret("setsockopt(%d, SO_RCVTIMEO)", connfd);
-            close(connfd);
-            continue;
+                err_ret("accept");
         }
 
-        // run new thread from threadpoll here
-        socks5_run(connfd);
-
+        thpool_add_work(thpool, &proxy_start, (void*)connfd);
     }
 
     return 0;

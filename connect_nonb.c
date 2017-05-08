@@ -1,6 +1,6 @@
 #include "common.h"
 
-int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec)
+int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec, int nusec)
 {
 	int				flags, n, error;
 	socklen_t		len;
@@ -27,7 +27,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 	FD_SET(sockfd, &rset);
 	wset = rset;
 	tval.tv_sec = nsec;
-	tval.tv_usec = 0;
+	tval.tv_usec = nusec;
 
 	if ( (n = select(sockfd+1, &rset, &wset, NULL,
 					 nsec ? &tval : NULL)) == 0) {
