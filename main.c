@@ -2,6 +2,7 @@
 
 /* init threadpoll, db, cache etc */
 threadpool thpool;
+char *sql_config;
 void server_init()
 {
     thpool = thpool_init(NR_THREADS);
@@ -11,8 +12,24 @@ void server_init()
     signal(SIGPIPE, SIG_IGN);
 
 #ifdef USEDB
-    if (sqlinit(ODBCARG) == -1)
+    char line[256];
+    FILE *f = fopen(sql_config, "r");
+    if (!f) {
+        err_quit("The project was compiled with -DUSEDB option,\n"
+                "Pass the config.txt file as an argument in the format:\n"
+                "odbc_srcname,dbuser,dbpasswd");
+    }
+    
+    if (fgets(line, sizeof(line), f) == NULL) {
+        err_quit("Error reading %s\n", sql_config);
+    }
+    if (line[strlen(line)-1] == '\n')
+        line[strlen(line)-1] = '\0';
+
+    if (sqlinit(line) == -1)
         err_quit("can't initialize odbc DB");
+
+    printf("ODBC: %s\n", line);
 #endif
 }
 
@@ -21,9 +38,18 @@ int main(int argc, char **argv)
     int listenfd, connfd;
     socklen_t clilen;
     struct sockaddr_storage cliaddr;
+    const char *host, *service;
+
+    if (argc == 2)
+        sql_config = argv[1];
 
     server_init();
-    listenfd = tcp_listen(NULL, "1080", NULL);
+
+    host = NULL;
+    service = "1080";
+    listenfd = tcp_listen(host, service, NULL);
+
+    printf("Listening on:\t%s:%s\t%lu/%s\n", host ? host : "*", service, (unsigned long)getpid(), argv[0]);
     
     for (;;) {
         clilen = sizeof(cliaddr);

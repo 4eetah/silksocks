@@ -398,8 +398,7 @@ static int socks5_connectproxy(struct socks5_cli *client)
 int socks5_run(int clientfd)
 {
     struct socks5_cli client;
-    unsigned char buf[BUFSIZE];
-    int n, status;
+    int status;
     uint8_t method;
 
     client.clientfd = clientfd;
