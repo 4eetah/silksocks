@@ -139,11 +139,18 @@ static int socks5_readauth(struct socks5_cli *client)
 /* check app authentication from db */
 static int socks5_doauth(struct socks5_cli *client)
 {
-    char appuser[] = "megaindex";
-    char apppasswd[] = "vnd9shd9bd";
+    char *apppasswd;
+
+#ifdef USEDB
+    if ((apppasswd = sqlget_apppasswd(client->user)) == NULL)
+        return 5;
+#else
+    apppasswd = strdup("vnd9shd9bd");
+#endif
 
     if (strcmp(client->passwd, apppasswd))
         return 5;
+
     return 0;
 }
 
@@ -317,6 +324,8 @@ static int socks5_connectproxy(struct socks5_cli *client)
     char buf[512];
     int n, status;
     struct sockaddr_in sin;
+    unsigned char *proxyuser;
+    unsigned char *proxypasswd;
 
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = htonl(client->proxyip);
@@ -338,10 +347,13 @@ static int socks5_connectproxy(struct socks5_cli *client)
     if (buf[0] != 5 || buf[1] != 0x02)
         return 4;
 
-    /* get user/passwd for proxy from db cache */
-    unsigned char proxyuser[] = "megaindex";    
-    unsigned char proxypasswd[] = "vnd9shd9bd";
-    /* */
+#ifdef USEDB
+    if (sqlget_proxycreds(&proxyuser, &proxypasswd, client->proxyip, client->proxyport, 1) == -1)
+        return 4;
+#else
+    proxyuser = strdup("megaindex");
+    proxypasswd = strdup("vnd9shd9bd");
+#endif
 
     /* proxy authenticate */
     n = 0;
@@ -381,36 +393,36 @@ int socks5_run(int clientfd)
     client.clientfd = clientfd;
 
     if ((status = socks5_choosemethod(clientfd, &method)) != 0)
-        goto ret;
+        goto done;
 
     /* authentication */
     if (method == 0x02) {
         if ((status = socks5_readauth(&client)) != 0)
-            goto ret;
+            goto done;
         if ((status = strip_redirectaddr(&client)) != 0)
-            goto ret;
+            goto done;
         if ((status = socks5_doauth(&client)) != 0)
-            goto ret;
+            goto done;
     } else if (method && method != 0xFF) {
         do_debug("custom socks5 method? %d", method);
         status = 7;
-        goto ret;
+        goto done;
     }
 
     /* request from client */
     if ((status = socks5_readrequest(&client)) != 0)
-        goto ret;
+        goto done;
 
     switch (client.cmd) {
     case (0x01):
         if ((status = socks5_connectproxy(&client)) != 0)
-            goto ret;
+            goto done;
         /* reply to client */
         if ((status = socks5_writereply(&client, status)) != 0)
-            goto ret;
+            goto done;
         if (negotiate(client.clientfd, client.proxyfd) == -1) {
             status = 1;
-            goto ret;
+            goto done;
         }
 
         break;
@@ -419,12 +431,10 @@ int socks5_run(int clientfd)
     case (0x03): // udp associate not implemented yet
     default:
         status = 7;
-        goto ret;
+        goto done;
     }
 
-    return 0;
-    
-ret:
+done:
 
     close(client.clientfd);
     close(client.proxyfd);

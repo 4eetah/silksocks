@@ -9,6 +9,11 @@ void server_init()
         err_quit("threadpool init failed");
 
     signal(SIGPIPE, SIG_IGN);
+
+#ifdef USEDB
+    if (sqlinit(ODBCARG) == -1)
+        err_quit("can't initialize odbc DB");
+#endif
 }
 
 int main(int argc, char **argv)
@@ -29,7 +34,11 @@ int main(int argc, char **argv)
                 err_ret("accept");
         }
 
+/* nasty cast warning =) */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
         thpool_add_work(thpool, &proxy_start, (void*)connfd);
+#pragma GCC diagnostic pop
     }
 
     return 0;

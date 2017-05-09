@@ -17,6 +17,8 @@
 #include <errno.h>
 #include <netdb.h>
 #include <signal.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "error.h"
 #include "thpool.h"
@@ -25,6 +27,8 @@
 #define NR_THREADS 100
 #define NEEDAUTH 1
 #define BUFSIZE 8192
+
+#define ODBCARG "megaindexodbc,root,den4ik"
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -65,5 +69,9 @@ ssize_t writen_timeo(int fd, const void *vptr, size_t n, long sec, long usec);
 int tcp_listen(const char *host, const char *serv, socklen_t *addrlenp);
 char *gf_time();
 void proxy_start(void *arg);
+int sqlinit(char *s);
+void sqlclose();
+char *sqlget_apppasswd(char *appuser);
+int sqlget_proxycreds(unsigned char **puser, unsigned char **ppasswd, unsigned int ip, unsigned short port, unsigned int status);
 
 #endif // COMMON_H
