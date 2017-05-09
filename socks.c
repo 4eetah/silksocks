@@ -142,8 +142,12 @@ static int socks5_doauth(struct socks5_cli *client)
     char *apppasswd;
 
 #ifdef USEDB
-    if ((apppasswd = sqlget_apppasswd(client->user)) == NULL)
-        return 5;
+    apppasswd = cache_getapp(client->user);
+    if (!apppasswd) {
+        if ((apppasswd = sqlget_apppasswd(client->user)) == NULL)
+            return 5;
+        cache_putapp(client->user, apppasswd);
+    }
 #else
     apppasswd = strdup("vnd9shd9bd");
 #endif
@@ -348,8 +352,16 @@ static int socks5_connectproxy(struct socks5_cli *client)
         return 4;
 
 #ifdef USEDB
-    if (sqlget_proxycreds(&proxyuser, &proxypasswd, client->proxyip, client->proxyport, 1) == -1)
-        return 4;
+    struct ip2creds *val;
+    val = cache_getip(client->proxyip);
+    if (!val) {
+        if (sqlget_proxycreds(&proxyuser, &proxypasswd, client->proxyip, client->proxyport, 1) == -1)
+            return 4;
+        cache_putip(client->proxyip, proxyuser, proxypasswd);
+    } else {
+        proxyuser = val->user;
+        proxypasswd = val->passwd;
+    }
 #else
     proxyuser = strdup("megaindex");
     proxypasswd = strdup("vnd9shd9bd");

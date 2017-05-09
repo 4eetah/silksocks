@@ -25,7 +25,7 @@ int main(int argc, char **argv)
     }
 
     nsec = atoi(argv[3]);
-    if (connect_nonb(fd, addr->ai_addr, addr->ai_addrlen, nsec) == -1)
+    if (connect_nonb(fd, addr->ai_addr, addr->ai_addrlen, nsec, 0) == -1)
         err_sys("connect_nonb");
     printf("connected successfully within %d sec\n", nsec);
 }

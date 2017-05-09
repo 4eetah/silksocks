@@ -99,7 +99,7 @@ int sqlinit(char * s)
 	return 0;
 }
 
-char *sqlget_apppasswd(char *appuser)
+char *sqlget_apppasswd(unsigned char *appuser)
 {
     if (!henv || !hdbc) {
         do_debug("DB isn't initialized");

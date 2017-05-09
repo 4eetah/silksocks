@@ -60,6 +60,12 @@ typedef enum {
 
 extern size_t timeo[LEN];
 
+struct ip2creds {
+    unsigned char *user;
+    unsigned char *passwd;
+};
+
+int negotiate(int clientfd, int proxyfd);
 struct addrinfo *host_serv(const char *host, const char *serv, int family, int socktype);
 int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec, int nusec);
 int setrcvtimeo(int fd, long sec, long usec);
@@ -71,7 +77,13 @@ char *gf_time();
 void proxy_start(void *arg);
 int sqlinit(char *s);
 void sqlclose();
-char *sqlget_apppasswd(char *appuser);
+char *sqlget_apppasswd(unsigned char *appuser);
 int sqlget_proxycreds(unsigned char **puser, unsigned char **ppasswd, unsigned int ip, unsigned short port, unsigned int status);
+int cache_putip(uint32_t key, unsigned char *user, unsigned char *passwd);
+struct ip2creds *cache_getip(uint32_t key);
+void cache_freeip();
+int cache_putapp(unsigned char *app, unsigned char *passwd);
+char *cache_getapp(unsigned char *app);
+void cache_freeapp();
 
 #endif // COMMON_H

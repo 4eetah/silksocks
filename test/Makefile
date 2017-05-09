@@ -1,5 +1,5 @@
 CFLAGS := -I../ -DDEBUG=1
-OBJS := ../cache.o ../gf_time.o ../error.o ../connect_nonb.o ../host_serv.o
+OBJS := ../cache.o ../gf_time.o ../error.o ../connect_nonb.o ../host_serv.o ../cache.o
 OUT := test_cache test_connect_nonb
 
 all: $(OUT) 
