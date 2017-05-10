@@ -149,7 +149,7 @@ static int socks5_doauth(struct socks5_cli *client)
         cache_putapp(client->user, apppasswd);
     }
 #else
-    apppasswd = strdup("vnd9shd9bd");
+    apppasswd = strdup("pwd");
 #endif
 
     if (strcmp(client->passwd, apppasswd))
@@ -363,8 +363,8 @@ static int socks5_connectproxy(struct socks5_cli *client)
         proxypasswd = val->passwd;
     }
 #else
-    proxyuser = strdup("megaindex");
-    proxypasswd = strdup("vnd9shd9bd");
+    proxyuser = strdup("usr");
+    proxypasswd = strdup("pwd");
 #endif
 
     /* proxy authenticate */

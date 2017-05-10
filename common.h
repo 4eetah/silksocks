@@ -28,8 +28,6 @@
 #define NEEDAUTH 1
 #define BUFSIZE 8192
 
-#define ODBCARG "megaindexodbc,root,den4ik"
-
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 #define sockADDR(sa) (((struct sockaddr*)sa)->sa_family == AF_INET6 ? \
