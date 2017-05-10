@@ -138,13 +138,7 @@ char *sqlget_apppasswd(unsigned char *appuser)
     if (ret == SQL_NO_DATA) {
         do_debug("dbappauth: Specified `user`(%s) not found in `app` table\n", appuser);
         goto error;
-    } else if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO) {
-        ret = SQLFetch(mystmt);
-        if (ret != SQL_NO_DATA) {
-            do_debug("dbappauth: More than one `user`(%s) found in app table, error...\n", appuser);
-            goto error;
-        }
-    } else {
+    } else if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
         extract_error("dbappauth: SQLFetch error", mystmt, SQL_HANDLE_STMT);
         goto error;
     }
@@ -215,12 +209,6 @@ int sqlget_proxycreds(unsigned char **puser, unsigned char **ppasswd, unsigned i
         goto error;
     } else if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
         extract_error("dbget_credentials: SQLFetch", mystmt, SQL_HANDLE_STMT);
-        goto error;
-    }
-
-    ret = SQLFetch(mystmt);
-    if (ret != SQL_NO_DATA) {
-        do_debug("dbget_credentials: More that one `ip`(%u),`port`(%u),`status`(%d) found in `proxy` table\n", ip, port, status);
         goto error;
     }
 
