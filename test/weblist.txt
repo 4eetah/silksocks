@@ -1,0 +1,13 @@
+google.com
+yandex.ru
+amazon.com
+facebook.com
+youtube.com
+stackoverflow.com
+linuxjournal.com
+news.ycombinator.com
+example.com
+example.org
+wiki.osdev.org
+awwapp.com
+unix.stackexchange.com

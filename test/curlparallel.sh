@@ -1,6 +1,6 @@
 #/bin/sh
 
-if [ $# -ne 2 ]; then
+if [ $# -lt 4 ]; then
     echo "Usage: $0 <proxylist.txt> <proxymgrhost> <user> <passwd> [<host>]"
     exit 1
 fi
@@ -27,5 +27,5 @@ for host in `cat $proxylist`; do
     echo "curl -L --proxy socks5://$proxymgr:1080 -U $user-$host-1080:$passwd $request";
 done > $curljobs
 
-cat $curljobs | parallel >/dev/null 2>&1
+cat $curljobs | parallel #>/dev/null 2>&1
 unlink $curljobs

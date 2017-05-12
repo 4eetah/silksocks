@@ -4,7 +4,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 {
 	int				flags, n, error;
 	socklen_t		len;
-	fd_set			rset, wset;
+	fd_set			wset;
 	struct timeval	tval;
 
 	error = 0;
@@ -19,35 +19,40 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 			return(-1);
 
 	if (n == 0) {
-        do_debug("connect completed immediately");
+        do_debug("connect(%d) completed immediately", sockfd);
 		goto done;
     }
 
-	FD_ZERO(&rset);
-	FD_SET(sockfd, &rset);
-	wset = rset;
+	FD_ZERO(&wset);
+	FD_SET(sockfd, &wset);
 	tval.tv_sec = nsec;
 	tval.tv_usec = nusec;
 
-	if ( (n = select(sockfd+1, &rset, &wset, NULL,
-					 nsec ? &tval : NULL)) == 0) {
-        do_debug("select, timeout expired");
-		close(sockfd);
-		errno = ETIMEDOUT;
-		return(-1);
-	} else if (n == -1) {
+    /* on Linux select() modifies timeout to reflect the amount of  time  not  slept */
+again:
+    if ( (n = select(sockfd+1, NULL, &wset, NULL,
+                     nsec ? &tval : NULL)) == 0) {
+        do_debug("select(%d), timeout expired", sockfd);
+        close(sockfd);
+        errno = ETIMEDOUT;
+        return(-1);
+    } else if (n == -1) {
+        if (errno == EINTR)
+            goto again;
         error = errno;
-        err_ret("connect_nonb: select error");
+        err_ret("connect_nonb(%d): select error", sockfd);
         goto done;
     }
 
-	if (FD_ISSET(sockfd, &rset) || FD_ISSET(sockfd, &wset)) {
-		len = sizeof(error);
-		if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
-			return(-1);
-        do_debug("successfully connected");
-	} else {
-		err_ret("connect_nonb: select error, sockfd not set");
+    if (FD_ISSET(sockfd, &wset)) {
+        len = sizeof(error);
+        if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+            return(-1);
+        do_debug("connect(%d) success", sockfd);
+    } else {
+        if (errno == EINPROGRESS)
+            goto again;
+        err_ret("connect_nonb(%d): select error, sockfd not set", sockfd);
         close(sockfd);
         return -1;
     }

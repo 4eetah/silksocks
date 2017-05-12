@@ -24,9 +24,9 @@
 #include "thpool.h"
 
 #define LISTENQ 1024
-#define NR_THREADS 100
+#define NR_THREADS 500
 #define NEEDAUTH 1
-#define BUFSIZE 8192
+#define BUFSIZE 16384
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
