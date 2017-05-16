@@ -1,5 +1,13 @@
 #include "common.h"
 
+#ifdef TEST_CONNB
+int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec, int nusec)
+{
+    if (connect(sockfd, saptr, salen) == -1)
+        return -1;
+    return 0;
+}
+#else
 int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec, int nusec)
 {
 	int				flags, n, error;
@@ -68,3 +76,4 @@ done:
 	}
 	return(0);
 }
+#endif
