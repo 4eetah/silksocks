@@ -6,4 +6,7 @@ The proxy manager is a socks proxy itself =)
 The main things are:
 - ability to use db as a storage for info about further forwarding and authentication to proxy
 - daemon for constantly updating db with available proxies + proxies info
-- threadpool, cache, fast non-blocking forwarding
+- threadpool / thread per connection policy
+- fast non-blocking forwarding
+- dns cache, auth cache
+- ability to serve 10k simultaneous connections
