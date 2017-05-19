@@ -19,11 +19,12 @@
 #include <signal.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <poll.h>
 
 #include "error.h"
 #include "thpool.h"
 
-#define LISTENQ 1024
+#define LISTENQ 4096
 #define NR_THREADS 500
 #define NEEDAUTH 1
 #define BUFSIZE 16384

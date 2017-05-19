@@ -1,13 +1,13 @@
 #include "common.h"
 
-#ifdef TEST_CONNB
+#ifdef CONNB_BLOCK
 int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec, int nusec)
 {
     if (connect(sockfd, saptr, salen) == -1)
         return -1;
     return 0;
 }
-#else
+#elif CONNB_SELECT
 int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec, int nusec)
 {
 	int				flags, n, error;
@@ -75,5 +75,32 @@ done:
 		return(-1);
 	}
 	return(0);
+}
+#else
+int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int nsec, int nusec)
+{
+    struct pollfd fds[1];
+    int flags;
+
+	if ((flags = fcntl(sockfd, F_GETFL, 0)) == -1)
+        return -1;
+	if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK))
+        return -1;
+
+    if(connect(sockfd, saptr, salen) < 0)
+       if(errno != EAGAIN && errno != EINPROGRESS)
+            return -1;
+
+    memset(fds, 0, sizeof(fds));
+    fds[0].fd = sockfd;
+    fds[0].events = POLLOUT;
+
+    if(poll(fds, 1, nsec * 1000) <= 0)
+       return -1;
+
+    if (fcntl(sockfd, F_SETFL, flags) == -1)
+        return -1;
+
+    return 0;
 }
 #endif
