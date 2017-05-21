@@ -1,6 +1,6 @@
 #include "common.h"
 
-const char *hosts[] = {
+unsigned char *hosts[] = {
     "google.com",
     "google.com",
     "amazon.com",
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 
     for (i = 0; i < sizeof(hosts)/sizeof(*hosts); ++i) {
         addr = ((struct in_addr*)hent->h_addr)->s_addr;
-        if (hashtbl_get(&dns_table, hosts[i], (unsigned char*)&addr, 0)) {
+        if (hashtbl_get(&dns_table, hosts[i], (unsigned char*)&addr)) {
             printf("Get: [%s] -> %s (success)\n", hosts[i], inet_ntoa(*(struct in_addr*)&addr));
         } else {
             printf("Get: [%s] -> null (fail)\n", hosts[i]);

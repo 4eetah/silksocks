@@ -261,18 +261,30 @@ int socks5_readrequest(struct socks5_cli *client)
         if (readn_timeo(clientfd, buf, b, timeo[BYTE_L], 0) != b)
             return 1;
         buf[b] = 0;
-        if ((addrin = host_serv(buf, NULL, AF_UNSPEC, SOCK_STREAM)) == NULL) 
-            return 4;
 
-        memcpy(sstorage, addrin->ai_addr, addrin->ai_addrlen); 
+        /* don't care of ipv6 for now */
+        sstorage->ss_family = AF_INET;
+        if (!hashtbl_get(&dns_table, buf, sockADDR(sstorage))) {
+            do_debug("dns lookup [%s] -> null (fail)", buf);
+            if ((addrin = host_serv(buf, NULL, AF_INET, SOCK_STREAM)) == NULL) 
+                return 4;
+
+            hashtbl_put(&dns_table, buf, sockADDR(addrin->ai_addr), 0);
+            memcpy(sstorage, addrin->ai_addr, addrin->ai_addrlen); 
+        }
+#ifdef DEBUG
+        else {
+            do_debug("dns lookup [%s] -> %s (success)", buf, inet_ntoa(*(struct in_addr*)sockADDR(sstorage)));
+        }
+#endif
 
         if (readn_timeo(clientfd, buf, 2, timeo[BYTE_L], 0) != 2) {
             freeaddrinfo(addrin);
             return 1;
         }
-        if (addrin->ai_family == AF_INET)
+        if (sstorage->ss_family == AF_INET)
             ((struct sockaddr_in*)sstorage)->sin_port = *(unsigned short*)buf;
-        else if (addrin->ai_family == AF_INET6)
+        else if (sstorage->ss_family == AF_INET6)
             ((struct sockaddr_in6*)sstorage)->sin6_port = *(unsigned short*)buf;
         freeaddrinfo(addrin);
         break; 

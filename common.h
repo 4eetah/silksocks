@@ -20,15 +20,16 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <poll.h>
+#include <pthread.h>
 
 #include "error.h"
 #include "thpool.h"
 
-#define LISTENQ 4096
+#define LISTENQ 8192
 #define NR_THREADS 1024
 #define NEEDAUTH 1
-#define BUFSIZE 32768
-#define HASHTBL_SIZE 65536
+#define BUFSIZE (1<<17)
+#define DNSTBL_SIZE (1<<18)
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -103,5 +104,8 @@ void cache_freeip();
 int cache_putapp(unsigned char *app, unsigned char *passwd);
 char *cache_getapp(unsigned char *app);
 void cache_freeapp();
+int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size);
+int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *val, time_t expires);
+int hashtbl_get(struct hash_table *hashtbl, unsigned char *key, unsigned char *val);
 
 #endif // COMMON_H

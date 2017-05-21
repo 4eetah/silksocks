@@ -4,6 +4,7 @@
     ((struct hash_entry*)((char*)hashtbl->entries + (i)*sizeof(struct hash_entry) + hashtbl->record_size-4))
 
 static time_t currtime = 0;
+pthread_mutex_t hashtbl_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size)
 {
@@ -28,8 +29,11 @@ int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size)
 
 int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *val, time_t expires)
 {
-    if (!hashtbl->empty_entry)
+    pthread_mutex_lock(&hashtbl_mutex);
+    if (!hashtbl->empty_entry) {
+        pthread_mutex_unlock(&hashtbl_mutex);
         return 0;
+    }
 
     struct hash_entry *hentry, *phe, **pphe;
     size_t idx;
@@ -62,6 +66,7 @@ int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *v
     hentry->next = hashtbl->table[idx];
     hashtbl->table[idx] = hentry;
 
+    pthread_mutex_unlock(&hashtbl_mutex);
     return 1;
 }
 
