@@ -25,9 +25,10 @@
 #include "thpool.h"
 
 #define LISTENQ 4096
-#define NR_THREADS 500
+#define NR_THREADS 1024
 #define NEEDAUTH 1
-#define BUFSIZE 16384
+#define BUFSIZE 32768
+#define HASHTBL_SIZE 65536
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -58,6 +59,24 @@ typedef enum {
 } timeout;
 
 extern size_t timeo[LEN];
+
+struct hash_entry {
+    unsigned long hash;
+    time_t expires;
+    struct hash_entry *next;
+    unsigned char value[4];
+};
+
+struct hash_table {
+    size_t size;
+    size_t record_size;
+    struct hash_entry **table;
+    void *entries;
+    struct hash_entry *empty_entry;
+};
+
+extern struct hash_table dns_table;
+extern struct hash_table dns6_table;
 
 struct ip2creds {
     unsigned char *user;

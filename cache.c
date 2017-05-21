@@ -14,7 +14,7 @@ static struct ip2creds *map_ip2creds[MAPIP_SIZE];
 static char *map_app2pass[MAPAPP_SIZE];
 
 /* Robert Jenkins' 32 bit integer hash function */
-static uint32_t hash32(uint32_t a)
+uint32_t hash32(uint32_t a)
 {
     a = (a+0x7ed55d16) + (a<<12);
     a = (a^0xc761c23c) ^ (a>>19);
@@ -26,7 +26,7 @@ static uint32_t hash32(uint32_t a)
 }
 
 /* djb2 */
-static unsigned long hashStr(unsigned char *str)
+unsigned long hashStr(unsigned char *str)
 {
     unsigned long hash = 5381;
     int c;
