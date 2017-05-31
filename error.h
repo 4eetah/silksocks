@@ -6,8 +6,10 @@
 #define MAXLINE 4096
 
 #ifdef DEBUG
-#define do_debug(fmt, ...) fprintf(stderr, "%s (%s): " fmt "\n", gf_time(), __func__, ##__VA_ARGS__)
+#define do_debug_errno(fmt, ...) err_ret("%s (%s): " fmt, gf_time(), __func__, ##__VA_ARGS__)
+#define do_debug(fmt, ...) err_msg("%s (%s): " fmt, gf_time(), __func__, ##__VA_ARGS__)
 #else
+#define do_debug_errno(fmt, ...)
 #define do_debug(fmt, ...)
 #endif
 

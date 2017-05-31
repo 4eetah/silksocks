@@ -136,7 +136,7 @@ char *sqlget_apppasswd(unsigned char *appuser)
 
     ret = SQLFetch(mystmt);
     if (ret == SQL_NO_DATA) {
-        do_debug("dbappauth: Specified `user`(%s) not found in `app` table\n", appuser);
+        do_debug("dbappauth: Specified `user`(%s) not found in `app` table", appuser);
         goto error;
     } else if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
         extract_error("dbappauth: SQLFetch error", mystmt, SQL_HANDLE_STMT);
@@ -205,7 +205,7 @@ int sqlget_proxycreds(unsigned char **puser, unsigned char **ppasswd, unsigned i
 
     ret = SQLFetch(mystmt);
     if (ret == SQL_NO_DATA) {
-        do_debug("Specified `ip`(%u),`port`(%u),`status`(%d) not found in `proxy` table\n", ip, port, status);
+        do_debug("Specified `ip`(%u),`port`(%u),`status`(%d) not found in `proxy` table", ip, port, status);
         goto error;
     } else if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
         extract_error("dbget_credentials: SQLFetch", mystmt, SQL_HANDLE_STMT);

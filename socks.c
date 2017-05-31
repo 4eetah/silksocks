@@ -22,6 +22,18 @@ o  X'08' Address type not supported
 o  X'09' to X'FF' unassigned
 */
 
+const char *socks5_strstatus[] = {
+    "ok",
+    "server failure",
+    "connection not allowed by ruleset",
+    "network unreachable",
+    "host unreachable",
+    "connection refused",
+    "TTL expired",
+    "command not supported",
+    "address type not supported",
+};
+
 struct socks5_cli {
     struct sockaddr_storage request;
     unsigned char user[256], passwd[256];
@@ -271,6 +283,7 @@ int socks5_readrequest(struct socks5_cli *client)
 
             hashtbl_put(&dns_table, buf, sockADDR(addrin->ai_addr), 0);
             memcpy(sstorage, addrin->ai_addr, addrin->ai_addrlen); 
+            freeaddrinfo(addrin);
         }
 #ifdef DEBUG
         else {
@@ -278,15 +291,13 @@ int socks5_readrequest(struct socks5_cli *client)
         }
 #endif
 
-        if (readn_timeo(clientfd, buf, 2, timeo[BYTE_L], 0) != 2) {
-            freeaddrinfo(addrin);
+        if (readn_timeo(clientfd, buf, 2, timeo[BYTE_L], 0) != 2)
             return 1;
-        }
+
         if (sstorage->ss_family == AF_INET)
             ((struct sockaddr_in*)sstorage)->sin_port = *(unsigned short*)buf;
         else if (sstorage->ss_family == AF_INET6)
             ((struct sockaddr_in6*)sstorage)->sin6_port = *(unsigned short*)buf;
-        freeaddrinfo(addrin);
         break; 
 
     case (0x04):
@@ -438,15 +449,12 @@ int socks5_run(int clientfd)
 
     switch (client.cmd) {
     case (0x01):
-        if ((status = socks5_connectproxy(&client)) != 0)
-            goto done;
+        status = socks5_connectproxy(&client);
         /* reply to client */
         if ((status = socks5_writereply(&client, status)) != 0)
             goto done;
-        if (negotiate(client.clientfd, client.proxyfd) == -1) {
-            status = 1;
+        if ((status = negotiate(client.clientfd, client.proxyfd)) != 0)
             goto done;
-        }
 
         break;
 

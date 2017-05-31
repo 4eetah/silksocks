@@ -34,8 +34,11 @@ void server_init()
     
     if (hashtbl_init(&dns_table, DNSTBL_SIZE, 4) == -1)
         err_quit("Failed to initialize dns_table");
-    if (hashtbl_init(&dns_table, DNSTBL_SIZE, 16) == -1)
+
+    /* no dns6 cache for now 
+    if (hashtbl_init(&dns6_table, DNSTBL_SIZE, 16) == -1)
         err_quit("Failed to initialize dns6_table");
+    */
 }
 
 int main(int argc, char **argv)

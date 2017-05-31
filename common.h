@@ -29,7 +29,7 @@
 #define NR_THREADS 1024
 #define NEEDAUTH 1
 #define BUFSIZE (1<<17)
-#define DNSTBL_SIZE (1<<18)
+#define DNSTBL_SIZE (1<<23)
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
