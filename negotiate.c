@@ -46,7 +46,7 @@ int negotiate(int clientfd, int proxyfd)
 	char		to[BUFSIZE], fr[BUFSIZE];
 	char		*toiptr, *tooptr, *friptr, *froptr;
 
-#ifdef DEBUG
+#if DEBUG_LVL > 1
     printf_peers(clientfd, proxyfd);
 #endif
 
@@ -169,7 +169,7 @@ int negotiate(int clientfd, int proxyfd)
     int timeout = timeo[CONNECT_L] * 1000;
     int sleeptime = 1000;
 
-#ifdef DEBUG
+#ifdef DEBUG_LVL > 1
     printf_peers(clientfd, proxyfd);
 #endif
 

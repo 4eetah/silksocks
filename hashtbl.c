@@ -53,8 +53,10 @@ int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *v
         return 0;
     }
 
-    if (hashtbl_check(hashtbl, key))
+    if (hashtbl_check(hashtbl, key)) {
+        pthread_mutex_unlock(&hashtbl->hmutex);
         return 1;
+    }
 
     struct hash_entry *hentry, *phe, **pphe;
     size_t idx;

@@ -4,7 +4,7 @@ OBJS := $(SRCS:.c=.o)
 OUT := silksocks
 LIBS := -pthread -lodbc
 #CFLAGS := -DUSEDB
-CFLAGS := -p -g -O0 -DDEBUG_LVL=2 -DUSEDB #-DDISABLE_SOCK_TIMEO
+CFLAGS := -p -g -O0 -DDEBUG_LVL=2 -DUSEDB -DUSE_SELECT_NEGOTIATE #-DDISABLE_SOCK_TIMEO
 
 all: $(OUT)
 
