@@ -3,11 +3,10 @@
 #define he_idx(i) \
     ((struct hash_entry*)((char*)hashtbl->entries + (i)*sizeof(struct hash_entry) + hashtbl->record_size-4))
 
-static time_t currtime = 0;
-pthread_mutex_t hashtbl_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size)
 {
+    pthread_mutex_init(&hashtbl->hmutex, NULL);
+
     hashtbl->size = size;
     hashtbl->record_size = record_size;
 
@@ -27,16 +26,39 @@ int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size)
     return 0;
 }
 
+int hashtbl_check(struct hash_table *hashtbl, unsigned char *key)
+{
+    struct hash_entry **pphe, *phe;
+    unsigned long hash;
+    size_t idx;
+    time_t now;
+
+    hash = hashStr(key);
+    idx = hash % hashtbl->size;
+    now = time(NULL);
+
+    for (pphe = hashtbl->table+idx; (phe = *pphe);) {
+        if (phe->hash == hash && phe->expires > now)
+            return 1;
+        pphe = &phe->next;
+    }
+    return 0;
+}
+
 int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *val, time_t expires)
 {
-    pthread_mutex_lock(&hashtbl_mutex);
+    pthread_mutex_lock(&hashtbl->hmutex);
     if (!hashtbl->empty_entry) {
-        pthread_mutex_unlock(&hashtbl_mutex);
+        pthread_mutex_unlock(&hashtbl->hmutex);
         return 0;
     }
 
+    if (hashtbl_check(hashtbl, key))
+        return 1;
+
     struct hash_entry *hentry, *phe, **pphe;
     size_t idx;
+    time_t now;
 
     hentry = hashtbl->empty_entry;
     hentry->hash = hashStr(key);
@@ -52,9 +74,10 @@ int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *v
     do_debug("hashtbl put: [%s] = %s, idx = %lu", key, (hashtbl->record_size == 4 ? \
             inet_ntop(AF_INET, (void*)val, buf, sizeof(buf)) : inet_ntop(AF_INET6, (void*)val, buf, sizeof(buf))), idx);
 #endif            
+    now = time(NULL);
 
     for (pphe = hashtbl->table+idx; (phe = *pphe);) {
-        if (hentry->hash == phe->hash || phe->expires < currtime ) {
+        if (hentry->hash == phe->hash || phe->expires < now) {
             *pphe = phe->next;
             phe->expires = 0;
             phe->next = hashtbl->empty_entry;
@@ -66,7 +89,7 @@ int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *v
     hentry->next = hashtbl->table[idx];
     hashtbl->table[idx] = hentry;
 
-    pthread_mutex_unlock(&hashtbl_mutex);
+    pthread_mutex_unlock(&hashtbl->hmutex);
     return 1;
 }
 
@@ -75,23 +98,28 @@ int hashtbl_get(struct hash_table *hashtbl, unsigned char *key, unsigned char *v
     struct hash_entry **pphe, *phe;
     unsigned long hash;
     size_t idx;
+    time_t now;
 
     hash = hashStr(key);
     idx = hash % hashtbl->size;
+    now = time(NULL);
 
+    pthread_mutex_lock(&hashtbl->hmutex);
     for (pphe = hashtbl->table+idx; (phe = *pphe);) {
-        if (phe->expires < currtime) {
+        if (phe->expires < now) {
             *pphe = phe->next;
             phe->expires = 0;
             phe->next = hashtbl->empty_entry;
             hashtbl->empty_entry = phe;
         } else if (phe->hash == hash) {
             memcpy(val, phe->value, hashtbl->record_size);
+            pthread_mutex_unlock(&hashtbl->hmutex);
             return 1;
         } else {
             pphe = &phe->next;
         }
     }
+    pthread_mutex_unlock(&hashtbl->hmutex);
     return 0;
 }
 

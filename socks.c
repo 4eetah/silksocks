@@ -281,7 +281,7 @@ int socks5_readrequest(struct socks5_cli *client)
             if ((addrin = host_serv(buf, NULL, AF_INET, SOCK_STREAM)) == NULL) 
                 return 4;
 
-            hashtbl_put(&dns_table, buf, sockADDR(addrin->ai_addr), 0);
+            hashtbl_put(&dns_table, buf, sockADDR(addrin->ai_addr), time(NULL)+DNS_TTL);
             memcpy(sstorage, addrin->ai_addr, addrin->ai_addrlen); 
             freeaddrinfo(addrin);
         }
@@ -426,17 +426,25 @@ int socks5_run(int clientfd)
 
     client.clientfd = clientfd;
 
-    if ((status = socks5_choosemethod(clientfd, &method)) != 0)
+    if ((status = socks5_choosemethod(clientfd, &method)) != 0) {
+        do_debug2("clienfd(%d), socks5_choosemethod error, status(%d)", clientfd, status);
         goto done;
+    }
 
     /* authentication */
     if (method == 0x02) {
-        if ((status = socks5_readauth(&client)) != 0)
+        if ((status = socks5_readauth(&client)) != 0) {
+            do_debug2("clientfd(%d), socks5_readauth error, status(%d)", clientfd, status);
             goto done;
-        if ((status = strip_redirectaddr(&client)) != 0)
+        }
+        if ((status = strip_redirectaddr(&client)) != 0) {
+            do_debug2("clientfd(%d), strip_redirectaddr error, status(%d)", clientfd, status);
             goto done;
-        if ((status = socks5_doauth(&client)) != 0)
+        }
+        if ((status = socks5_doauth(&client)) != 0) {
+            do_debug2("clientfd(%d), socks5_doauth error, status(%d)", clientfd, status);
             goto done;
+        }
     } else if (method && method != 0xFF) {
         do_debug("custom socks5 method? %d", method);
         status = 7;
@@ -444,17 +452,24 @@ int socks5_run(int clientfd)
     }
 
     /* request from client */
-    if ((status = socks5_readrequest(&client)) != 0)
+    if ((status = socks5_readrequest(&client)) != 0) {
+        do_debug2("clientfd(%d), socks5_readrequest error, status(%d)", clientfd, status);
         goto done;
+    }
 
     switch (client.cmd) {
     case (0x01):
         status = socks5_connectproxy(&client);
+        do_debug2("(%d,%d): socks5_connectproxy, success", client.clientfd, client.proxyfd);
         /* reply to client */
-        if ((status = socks5_writereply(&client, status)) != 0)
+        if ((status = socks5_writereply(&client, status)) != 0) {
+            do_debug2("(%d,%d): socks5_readrequest error, status(%d)", client.clientfd, client.proxyfd, status);
             goto done;
-        if ((status = negotiate(client.clientfd, client.proxyfd)) != 0)
+        }
+        if ((status = negotiate(client.clientfd, client.proxyfd)) != 0) {
+            //do_debug2("(%d,%d): negotiate error, status(%d)", client.clientfd, client.proxyfd, status);
             goto done;
+        }
 
         break;
 

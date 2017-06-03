@@ -1,3 +1,3 @@
 #include "common.h"
 
-size_t timeo[LEN] = {1, 5, 10, 20, 30, 60};
+size_t timeo[LEN] = {5, 10, 30, 60, 180, 1800};

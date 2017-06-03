@@ -30,6 +30,7 @@
 #define NEEDAUTH 1
 #define BUFSIZE (1<<17)
 #define DNSTBL_SIZE (1<<23)
+#define DNS_TTL 300 // sec
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -56,7 +57,7 @@ typedef enum {
     STRING_L,
     CONNECT_S,
     CONNECT_L,
-    LEN
+    LEN,
 } timeout;
 
 extern size_t timeo[LEN];
@@ -69,6 +70,7 @@ struct hash_entry {
 };
 
 struct hash_table {
+    pthread_mutex_t hmutex;
     size_t size;
     size_t record_size;
     struct hash_entry **table;
@@ -107,5 +109,6 @@ void cache_freeapp();
 int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size);
 int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *val, time_t expires);
 int hashtbl_get(struct hash_table *hashtbl, unsigned char *key, unsigned char *val);
+int hashtbl_check(struct hash_table *hashtbl, unsigned char *key);
 
 #endif // COMMON_H

@@ -5,12 +5,20 @@
 
 #define MAXLINE 4096
 
-#ifdef DEBUG
-#define do_debug_errno(fmt, ...) err_ret("%s (%s): " fmt, gf_time(), __func__, ##__VA_ARGS__)
-#define do_debug(fmt, ...) err_msg("%s (%s): " fmt, gf_time(), __func__, ##__VA_ARGS__)
+#if DEBUG_LVL > 0
+#define do_debug_errno(fmt, ...) err_ret("%s (%16s): " fmt, gf_time(), __func__, ##__VA_ARGS__)
+#define do_debug(fmt, ...) err_msg("%s (%16s): " fmt, gf_time(), __func__, ##__VA_ARGS__)
 #else
 #define do_debug_errno(fmt, ...)
 #define do_debug(fmt, ...)
+#endif
+
+#if DEBUG_LVL > 1
+#define do_debug2_errno(fmt, ...) do_debug_errno(fmt, ##__VA_ARGS__) 
+#define do_debug2(fmt, ...) do_debug(fmt, ##__VA_ARGS__)
+#else
+#define do_debug2_errno(fmt, ...)
+#define do_debug2(fmt, ...)
 #endif
 
 void err_ret(const char *fmt, ...);

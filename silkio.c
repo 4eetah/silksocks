@@ -12,6 +12,7 @@ int setnonblock(int fd)
     return 0;
 }
 
+#ifndef DISABLE_SOCK_TIMEO
 int setrcvtimeo(int fd, long sec, long usec)
 {
     struct timeval timer;
@@ -33,6 +34,10 @@ int setsndtimeo(int fd, long sec, long usec)
         return -1;
     return 0;
 }
+#else
+#define setrcvtimeo(fd, sec, usec) 0
+#define setsndtimeo(fd, sec, usec) 0
+#endif
 
 
 ssize_t readn_timeo(int fd, void *vptr, size_t n, long sec, long usec)
