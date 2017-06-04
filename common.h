@@ -62,6 +62,7 @@ typedef enum {
 } timeout;
 
 extern size_t timeo[LEN];
+extern int daemon_proc;
 
 struct hash_entry {
     unsigned long hash;

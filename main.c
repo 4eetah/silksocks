@@ -1,5 +1,37 @@
 #include "common.h"
 
+void daemon_init(const char *pname, int facility)
+{
+    int i;
+    pid_t pid;
+
+    if ((pid = fork()) < 0) {
+        perror("fork1");
+        exit(1);
+    }
+    if (pid != 0)
+        exit(0);
+
+    setsid();
+    signal(SIGHUP, SIG_IGN);
+
+    if ((pid = fork()) < 0) {
+        perror("fork2");
+        exit(1);
+    }
+    if (pid != 0)
+        exit(0);
+
+    chdir("/");
+    umask(0);
+    
+    for (i = 0; i < 65535; ++i)
+        close(i);
+
+    daemon_proc = 1; // switch to syslog error.c
+    openlog(pname, LOG_PID, facility);
+}
+
 /* init threadpoll, db, cache etc */
 threadpool thpool;
 char *sql_config;
@@ -41,17 +73,36 @@ void server_init()
     */
 }
 
+void usage(char *prog) {
+    err_quit("Usage: %s [-d] socks.cfg\n\t-d daemonize process", prog);
+}
+
 int main(int argc, char **argv)
 {
     int listenfd, connfd;
     socklen_t clilen;
     struct sockaddr_storage cliaddr;
     const char *host, *service;
+    int opt;
+    int daemon = 0;
 
-    if (argc == 2)
-        sql_config = argv[1];
+    while ((opt = getopt(argc, argv, "d")) != -1) {
+        switch (opt) {
+        case 'd':
+            daemon = 1;
+            break;
+        default:
+            usage(argv[0]);
+        }
+    }
+    if (argc - optind > 1)
+        usage(argv[0]);
+    sql_config = argv[optind];
 
     server_init();
+
+    if (daemon)
+        daemon_init(argv[0], 0);
 
     host = NULL;
     service = "1080";

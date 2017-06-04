@@ -59,7 +59,7 @@ int negotiate(int clientfd, int proxyfd)
 	char		to[BUFSIZE], fr[BUFSIZE];
 	char		*toiptr, *tooptr, *friptr, *froptr;
 
-#if DEBUG_LVL > 1
+#if DEBUG_LVL > 0
     printf_peers(clientfd, proxyfd);
 #endif
 
@@ -91,19 +91,19 @@ int negotiate(int clientfd, int proxyfd)
 		if (FD_ISSET(clientfd, &rset)) {
 			if ( (n = read(clientfd, toiptr, &to[BUFSIZE] - toiptr)) < 0) {
 				if (errno != EAGAIN && errno != EWOULDBLOCK) {
-					do_debug_errno("(%d,%d): read error on clientfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): read error on clientfd", clientfd, proxyfd);
                     return 1;
                 }
 
 			} else if (n == 0) {
-				do_debug("(%d,%d): EOF on clientfd", clientfd, proxyfd);
+				do_debug2("(%d,%d): EOF on clientfd", clientfd, proxyfd);
 
 				clienteof = 1;			/* all done with client */
 				if (tooptr == toiptr)
 				    shutdown(proxyfd, SHUT_WR); /* send FIN */
 
 			} else {
-				do_debug("(%d,%d): read %ld bytes from clientfd", clientfd, proxyfd, n);
+				do_debug2("(%d,%d): read %ld bytes from clientfd", clientfd, proxyfd, n);
 
 				toiptr += n;			/* # just read */
 				FD_SET(proxyfd, &wset);	/* try and write to socket below */
@@ -113,22 +113,22 @@ int negotiate(int clientfd, int proxyfd)
 		if (FD_ISSET(proxyfd, &rset)) {
 			if ( (n = read(proxyfd, friptr, &fr[BUFSIZE] - friptr)) < 0) {
 				if (errno != EAGAIN && errno != EWOULDBLOCK) {
-					do_debug_errno("(%d,%d): read error on proxyfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): read error on proxyfd", clientfd, proxyfd);
                     return 1;
                 }
 
 			} else if (n == 0) {
-				do_debug("(%d,%d): EOF on proxy socket", clientfd, proxyfd);
+				do_debug2("(%d,%d): EOF on proxy socket", clientfd, proxyfd);
 
 				if (clienteof)
 					return 0;		/* normal termination */
 				else {
-					do_debug("(%d,%d): proxy server terminated prematurely", clientfd, proxyfd);
+					do_debug2("(%d,%d): proxy server terminated prematurely", clientfd, proxyfd);
                     return 1;
                 }
 
 			} else {
-				do_debug("(%d,%d): read %ld bytes from proxy server socket", clientfd, proxyfd, n);
+				do_debug2("(%d,%d): read %ld bytes from proxy server socket", clientfd, proxyfd, n);
 
 				friptr += n;		/* # just read */
 				FD_SET(clientfd, &wset);	/* try and write below */
@@ -138,12 +138,12 @@ int negotiate(int clientfd, int proxyfd)
 		if (FD_ISSET(clientfd, &wset) && ( (n = friptr - froptr) > 0)) {
 			if ( (nwritten = write(clientfd, froptr, n)) < 0) {
 				if (errno != EAGAIN && errno != EWOULDBLOCK) {
-					do_debug_errno("(%d,%d): write error to clientfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): write error to clientfd", clientfd, proxyfd);
                     return 1;
                 }
 
 			} else {
-				do_debug("(%d,%d): wrote %ld bytes to client socket", clientfd, proxyfd, nwritten);
+				do_debug2("(%d,%d): wrote %ld bytes to client socket", clientfd, proxyfd, nwritten);
 
 				froptr += nwritten;		/* # just written */
 				if (froptr == friptr)
@@ -154,12 +154,12 @@ int negotiate(int clientfd, int proxyfd)
 		if (FD_ISSET(proxyfd, &wset) && ( (n = toiptr - tooptr) > 0)) {
 			if ( (nwritten = write(proxyfd, tooptr, n)) < 0) {
 				if (errno != EAGAIN && errno != EWOULDBLOCK) {
-					do_debug_errno("(%d,%d): write error to proxyfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): write error to proxyfd", clientfd, proxyfd);
                     return 1;
                 }
 
 			} else {
-				do_debug("(%d,%d): wrote %ld bytes to proxy socket", clientfd, proxyfd, nwritten);
+				do_debug2("(%d,%d): wrote %ld bytes to proxy socket", clientfd, proxyfd, nwritten);
 
 				tooptr += nwritten;	/* # just written */
 				if (tooptr == toiptr) {
@@ -183,7 +183,7 @@ int negotiate(int clientfd, int proxyfd)
     int sleeptime = 1000;
     int status = 0;
 
-#if DEBUG_LVL > 1
+#if DEBUG_LVL > 0
     printf_peers(clientfd, proxyfd);
 #endif
 
@@ -221,7 +221,7 @@ int negotiate(int clientfd, int proxyfd)
         n = poll(pfds, 2, timeout);
 		if (n == -1) {
             if (errno != EAGAIN && errno != EINTR) {
-                do_debug_errno("(%d,%d): poll error", clientfd, proxyfd);
+                do_debug2_errno("(%d,%d): poll error", clientfd, proxyfd);
                 status = 1;
                 goto done;
             }
@@ -237,7 +237,7 @@ int negotiate(int clientfd, int proxyfd)
 		if (pfds[0].revents & POLLIN) {
 			if ((n = splice(clientfd, NULL, pipecli[1], NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): read error on clientfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): read error on clientfd", clientfd, proxyfd);
                     status = 1;
                     goto done;
                 }
@@ -246,14 +246,14 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else if (n == 0) {
-				do_debug("(%d,%d): EOF on clientfd", clientfd, proxyfd);
+				do_debug2("(%d,%d): EOF on clientfd", clientfd, proxyfd);
 
 				clienteof = 1;			/* all done with client */
 				if (npipecli == 0)
 				    shutdown(proxyfd, SHUT_WR); /* send FIN */
 
 			} else {
-				do_debug("(%d,%d): read %ld bytes from clientfd", clientfd, proxyfd, n);
+				do_debug2("(%d,%d): read %ld bytes from clientfd", clientfd, proxyfd, n);
 
 				npipecli += n;			/* # just read */
 				pfds[1].events |= POLLOUT;	/* try and write to socket below */
@@ -263,7 +263,7 @@ int negotiate(int clientfd, int proxyfd)
 		if (pfds[1].revents & POLLIN) {
 			if ((n = splice(proxyfd, NULL, pipesrv[1], NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): read error on proxyfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): read error on proxyfd", clientfd, proxyfd);
                     status = 1;
                     goto done;
                 }
@@ -272,18 +272,18 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else if (n == 0) {
-				do_debug("(%d,%d): EOF on proxy socket", clientfd, proxyfd);
+				do_debug2("(%d,%d): EOF on proxy socket", clientfd, proxyfd);
 
 				if (clienteof)
 					status = 0;		/* normal termination */
 				else {
-					do_debug("(%d,%d): proxy server terminated prematurely", clientfd, proxyfd);
+					do_debug2("(%d,%d): proxy server terminated prematurely", clientfd, proxyfd);
                     status = 1;
                 }
                 goto done;
 
 			} else {
-				do_debug("(%d,%d): read %ld bytes from proxy server socket", clientfd, proxyfd, n);
+				do_debug2("(%d,%d): read %ld bytes from proxy server socket", clientfd, proxyfd, n);
 
 				npipesrv += n;		/* # just read */
 				pfds[0].events |= POLLOUT;	/* try and write below */
@@ -293,7 +293,7 @@ int negotiate(int clientfd, int proxyfd)
 		if ((pfds[0].revents & POLLOUT) && (npipesrv > 0)) {
 			if ((nwritten = splice(pipesrv[0], NULL, clientfd, NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): write error to clientfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): write error to clientfd", clientfd, proxyfd);
                     status = 1;
                     goto done;
                 }
@@ -302,7 +302,7 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else {
-				do_debug("(%d,%d): wrote %ld bytes to client socket", clientfd, proxyfd, nwritten);
+				do_debug2("(%d,%d): wrote %ld bytes to client socket", clientfd, proxyfd, nwritten);
 
 				npipesrv -= nwritten;		/* # just written */
 			}
@@ -311,7 +311,7 @@ int negotiate(int clientfd, int proxyfd)
 		if ((pfds[1].revents & POLLOUT) && (npipecli > 0)) {
 			if ((nwritten = splice(pipecli[0], NULL, proxyfd, NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): write error to proxyfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): write error to proxyfd", clientfd, proxyfd);
                     status = 1;
                     goto done;
                 }
@@ -320,7 +320,7 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else {
-				do_debug("(%d,%d): wrote %ld bytes to proxy socket", clientfd, proxyfd, nwritten);
+				do_debug2("(%d,%d): wrote %ld bytes to proxy socket", clientfd, proxyfd, nwritten);
 
 				npipecli -= nwritten;	/* # just written */
                 if (npipecli == 0 && clienteof)
@@ -346,7 +346,7 @@ int negotiate(int clientfd, int proxyfd)
     int timeout = timeo[CONNECT_L] * 1000;
     int sleeptime = 1000;
 
-#if DEBUG_LVL > 1
+#if DEBUG_LVL > 0
     printf_peers(clientfd, proxyfd);
 #endif
 
@@ -376,7 +376,7 @@ int negotiate(int clientfd, int proxyfd)
         n = poll(pfds, 2, timeout);
 		if (n == -1) {
             if (errno != EAGAIN && errno != EINTR) {
-                do_debug_errno("(%d,%d): poll error", clientfd, proxyfd);
+                do_debug2_errno("(%d,%d): poll error", clientfd, proxyfd);
                 return 1;
             }
             if (errno == EINTR)
@@ -389,7 +389,7 @@ int negotiate(int clientfd, int proxyfd)
 		if (pfds[0].revents & POLLIN) {
 			if ((n = read(clientfd, toiptr, &to[BUFSIZE] - toiptr)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): read error on clientfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): read error on clientfd", clientfd, proxyfd);
                     return 1;
                 }
                 if (errno == EINTR)
@@ -397,14 +397,14 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else if (n == 0) {
-				do_debug("(%d,%d): EOF on clientfd", clientfd, proxyfd);
+				do_debug2("(%d,%d): EOF on clientfd", clientfd, proxyfd);
 
 				clienteof = 1;			/* all done with client */
 				if (tooptr == toiptr)
 				    shutdown(proxyfd, SHUT_WR); /* send FIN */
 
 			} else {
-				do_debug("(%d,%d): read %ld bytes from clientfd", clientfd, proxyfd, n);
+				do_debug2("(%d,%d): read %ld bytes from clientfd", clientfd, proxyfd, n);
 
 				toiptr += n;			/* # just read */
 				pfds[1].events |= POLLOUT;	/* try and write to socket below */
@@ -414,7 +414,7 @@ int negotiate(int clientfd, int proxyfd)
 		if (pfds[1].revents & POLLIN) {
 			if ((n = read(proxyfd, friptr, &fr[BUFSIZE] - friptr)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): read error on proxyfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): read error on proxyfd", clientfd, proxyfd);
                     return 1;
                 }
                 if (errno == EINTR)
@@ -422,17 +422,17 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else if (n == 0) {
-				do_debug("(%d,%d): EOF on proxy socket", clientfd, proxyfd);
+				do_debug2("(%d,%d): EOF on proxy socket", clientfd, proxyfd);
 
 				if (clienteof)
 					return 0;		/* normal termination */
 				else {
-					do_debug("(%d,%d): proxy server terminated prematurely", clientfd, proxyfd);
+					do_debug2("(%d,%d): proxy server terminated prematurely", clientfd, proxyfd);
                     return 1;
                 }
 
 			} else {
-				do_debug("(%d,%d): read %ld bytes from proxy server socket", clientfd, proxyfd, n);
+				do_debug2("(%d,%d): read %ld bytes from proxy server socket", clientfd, proxyfd, n);
 
 				friptr += n;		/* # just read */
 				pfds[0].events |= POLLOUT;	/* try and write below */
@@ -442,7 +442,7 @@ int negotiate(int clientfd, int proxyfd)
 		if ((pfds[0].revents & POLLOUT) && ((n = friptr - froptr) > 0)) {
 			if ((nwritten = write(clientfd, froptr, n)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): write error to clientfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): write error to clientfd", clientfd, proxyfd);
                     return 1;
                 }
                 if (errno == EINTR)
@@ -450,7 +450,7 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else {
-				do_debug("(%d,%d): wrote %ld bytes to client socket", clientfd, proxyfd, nwritten);
+				do_debug2("(%d,%d): wrote %ld bytes to client socket", clientfd, proxyfd, nwritten);
 
 				froptr += nwritten;		/* # just written */
 				if (froptr == friptr)
@@ -461,7 +461,7 @@ int negotiate(int clientfd, int proxyfd)
 		if ((pfds[1].revents & POLLOUT) && ((n = toiptr - tooptr) > 0)) {
 			if ((nwritten = write(proxyfd, tooptr, n)) < 0) {
 				if (errno != EAGAIN && errno != EINTR) {
-					do_debug_errno("(%d,%d): write error to proxyfd", clientfd, proxyfd);
+					do_debug2_errno("(%d,%d): write error to proxyfd", clientfd, proxyfd);
                     return 1;
                 }
                 if (errno == EINTR)
@@ -469,7 +469,7 @@ int negotiate(int clientfd, int proxyfd)
                 continue;
 
 			} else {
-				do_debug("(%d,%d): wrote %ld bytes to proxy socket", clientfd, proxyfd, nwritten);
+				do_debug2("(%d,%d): wrote %ld bytes to proxy socket", clientfd, proxyfd, nwritten);
 
 				tooptr += nwritten;	/* # just written */
 				if (tooptr == toiptr) {

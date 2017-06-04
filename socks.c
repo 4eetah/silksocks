@@ -277,7 +277,7 @@ int socks5_readrequest(struct socks5_cli *client)
         /* don't care of ipv6 for now */
         sstorage->ss_family = AF_INET;
         if (!hashtbl_get(&dns_table, buf, sockADDR(sstorage))) {
-            do_debug("dns lookup [%s] -> null (fail)", buf);
+            do_debug2("dns lookup [%s] -> null (fail)", buf);
             if ((addrin = host_serv(buf, NULL, AF_INET, SOCK_STREAM)) == NULL) 
                 return 4;
 
@@ -285,9 +285,9 @@ int socks5_readrequest(struct socks5_cli *client)
             memcpy(sstorage, addrin->ai_addr, addrin->ai_addrlen); 
             freeaddrinfo(addrin);
         }
-#ifdef DEBUG
+#if DEBUG_LVL > 1
         else {
-            do_debug("dns lookup [%s] -> %s (success)", buf, inet_ntoa(*(struct in_addr*)sockADDR(sstorage)));
+            do_debug2("dns lookup [%s] -> %s (success)", buf, inet_ntoa(*(struct in_addr*)sockADDR(sstorage)));
         }
 #endif
 
@@ -446,7 +446,7 @@ int socks5_run(int clientfd)
             goto done;
         }
     } else if (method && method != 0xFF) {
-        do_debug("custom socks5 method? %d", method);
+        do_debug2("custom socks5 method? %d", method);
         status = 7;
         goto done;
     }
@@ -467,7 +467,7 @@ int socks5_run(int clientfd)
             goto done;
         }
         if ((status = negotiate(client.clientfd, client.proxyfd)) != 0) {
-            //do_debug2("(%d,%d): negotiate error, status(%d)", client.clientfd, client.proxyfd, status);
+            do_debug3("(%d,%d): negotiate error, status(%d)", client.clientfd, client.proxyfd, status);
             goto done;
         }
 

@@ -27,7 +27,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 			return(-1);
 
 	if (n == 0) {
-        do_debug("connect(%d) completed immediately", sockfd);
+        do_debug2("connect(%d) completed immediately", sockfd);
 		goto done;
     }
 
@@ -40,7 +40,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 again:
     if ( (n = select(sockfd+1, NULL, &wset, NULL,
                      nsec ? &tval : NULL)) == 0) {
-        do_debug("select(%d), timeout expired", sockfd);
+        do_debug2("select(%d), timeout expired", sockfd);
         close(sockfd);
         errno = ETIMEDOUT;
         return(-1);
@@ -56,7 +56,7 @@ again:
         len = sizeof(error);
         if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
             return(-1);
-        do_debug("connect(%d) success", sockfd);
+        do_debug2("connect(%d) success", sockfd);
     } else {
         if (errno == EINPROGRESS)
             goto again;

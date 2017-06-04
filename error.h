@@ -21,6 +21,14 @@
 #define do_debug2(fmt, ...)
 #endif
 
+#if DEBUG_LVL > 2
+#define do_debug3_errno(fmt, ...) do_debug_errno(fmt, ##__VA_ARGS__) 
+#define do_debug3(fmt, ...) do_debug(fmt, ##__VA_ARGS__)
+#else
+#define do_debug3_errno(fmt, ...)
+#define do_debug3(fmt, ...)
+#endif
+
 void err_ret(const char *fmt, ...);
 void err_sys(const char *fmt, ...);
 void err_dump(const char *fmt, ...);
