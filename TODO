@@ -1,0 +1,2 @@
+- use TCPSP(zero-copy forwarding) splice kernel module to achive close to router performance
+http://www.linuxvirtualserver.org/software/tcpsp/index.html
