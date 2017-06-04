@@ -1,5 +1,18 @@
 #include "common.h"
 
+#ifndef SPLICE_F_MOVE
+#define SPLICE_F_MOVE           0x01
+#endif
+#ifndef SPLICE_F_NONBLOCK
+#define SPLICE_F_NONBLOCK       0x02
+#endif
+#ifndef SPLICE_F_MORE
+#define SPLICE_F_MORE           0x04
+#endif
+#ifndef SPLICE_F_GIFT
+#define SPLICE_F_GIFT           0x08
+#endif
+
 #define printf_peers(clientfd, proxyfd) \
 do { \
     char buf[256]; \
@@ -158,6 +171,170 @@ int negotiate(int clientfd, int proxyfd)
 		}
 	}
 }
+#elif USE_SPLICE_NEGOTIATE
+int negotiate(int clientfd, int proxyfd)
+{
+	int			maxfdp1, clienteof;
+	ssize_t		n, nwritten;
+	struct pollfd pfds[2];
+    int pipesrv[2], pipecli[2];
+    int npipecli, npipesrv;
+    int timeout = timeo[CONNECT_L] * 1000;
+    int sleeptime = 1000;
+    int status = 0;
+
+#if DEBUG_LVL > 1
+    printf_peers(clientfd, proxyfd);
+#endif
+
+    if (setnonblock(clientfd) == -1)
+        return 1;
+    if (setnonblock(proxyfd) == -1)
+        return 1;
+
+    if (pipe2(pipesrv, O_NONBLOCK) == -1)
+        return 1;
+    if (pipe2(pipecli, O_NONBLOCK) == -1) {
+        close(pipesrv[0]);
+        close(pipesrv[1]);
+        return 1;
+    }
+
+    npipecli = npipesrv = 0;
+	clienteof = 0;
+
+    pfds[0].fd = clientfd;
+    pfds[1].fd = proxyfd;
+	maxfdp1 = max(clientfd, proxyfd) + 1;
+
+	for ( ; ; ) {
+        pfds[0].events = pfds[1].events = 0;
+		if (clienteof == 0 && npipecli < BUFSIZE)
+			pfds[0].events |= POLLIN;	        /* read from client socket */
+		if (npipesrv < BUFSIZE)
+			pfds[1].events |= POLLIN;			/* read from proxy server socket */
+		if (npipecli)
+			pfds[1].events |= POLLOUT;			/* data to write to proxy server socket */
+		if (npipesrv)
+			pfds[0].events |= POLLOUT;	    /* data to write to client socket */
+
+        n = poll(pfds, 2, timeout);
+		if (n == -1) {
+            if (errno != EAGAIN && errno != EINTR) {
+                do_debug_errno("(%d,%d): poll error", clientfd, proxyfd);
+                status = 1;
+                goto done;
+            }
+            if (errno == EINTR)
+                usleep(sleeptime);
+            continue;
+        }
+        if (n == 0) {
+            status = 6;
+            goto done;
+        }
+
+		if (pfds[0].revents & POLLIN) {
+			if ((n = splice(clientfd, NULL, pipecli[1], NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
+				if (errno != EAGAIN && errno != EINTR) {
+					do_debug_errno("(%d,%d): read error on clientfd", clientfd, proxyfd);
+                    status = 1;
+                    goto done;
+                }
+                if (errno == EINTR)
+                    usleep(sleeptime);
+                continue;
+
+			} else if (n == 0) {
+				do_debug("(%d,%d): EOF on clientfd", clientfd, proxyfd);
+
+				clienteof = 1;			/* all done with client */
+				if (npipecli == 0)
+				    shutdown(proxyfd, SHUT_WR); /* send FIN */
+
+			} else {
+				do_debug("(%d,%d): read %ld bytes from clientfd", clientfd, proxyfd, n);
+
+				npipecli += n;			/* # just read */
+				pfds[1].events |= POLLOUT;	/* try and write to socket below */
+			}
+		}
+
+		if (pfds[1].revents & POLLIN) {
+			if ((n = splice(proxyfd, NULL, pipesrv[1], NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
+				if (errno != EAGAIN && errno != EINTR) {
+					do_debug_errno("(%d,%d): read error on proxyfd", clientfd, proxyfd);
+                    status = 1;
+                    goto done;
+                }
+                if (errno == EINTR)
+                    usleep(sleeptime);
+                continue;
+
+			} else if (n == 0) {
+				do_debug("(%d,%d): EOF on proxy socket", clientfd, proxyfd);
+
+				if (clienteof)
+					status = 0;		/* normal termination */
+				else {
+					do_debug("(%d,%d): proxy server terminated prematurely", clientfd, proxyfd);
+                    status = 1;
+                }
+                goto done;
+
+			} else {
+				do_debug("(%d,%d): read %ld bytes from proxy server socket", clientfd, proxyfd, n);
+
+				npipesrv += n;		/* # just read */
+				pfds[0].events |= POLLOUT;	/* try and write below */
+			}
+		}
+
+		if ((pfds[0].revents & POLLOUT) && (npipesrv > 0)) {
+			if ((nwritten = splice(pipesrv[0], NULL, clientfd, NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
+				if (errno != EAGAIN && errno != EINTR) {
+					do_debug_errno("(%d,%d): write error to clientfd", clientfd, proxyfd);
+                    status = 1;
+                    goto done;
+                }
+                if (errno == EINTR)
+                    usleep(sleeptime);
+                continue;
+
+			} else {
+				do_debug("(%d,%d): wrote %ld bytes to client socket", clientfd, proxyfd, nwritten);
+
+				npipesrv -= nwritten;		/* # just written */
+			}
+		}
+
+		if ((pfds[1].revents & POLLOUT) && (npipecli > 0)) {
+			if ((nwritten = splice(pipecli[0], NULL, proxyfd, NULL, BUFSIZE, SPLICE_F_MOVE|SPLICE_F_NONBLOCK|SPLICE_F_MORE)) < 0) {
+				if (errno != EAGAIN && errno != EINTR) {
+					do_debug_errno("(%d,%d): write error to proxyfd", clientfd, proxyfd);
+                    status = 1;
+                    goto done;
+                }
+                if (errno == EINTR)
+                    usleep(sleeptime);
+                continue;
+
+			} else {
+				do_debug("(%d,%d): wrote %ld bytes to proxy socket", clientfd, proxyfd, nwritten);
+
+				npipecli -= nwritten;	/* # just written */
+                if (npipecli == 0 && clienteof)
+                    shutdown(proxyfd, SHUT_WR);	/* send FIN */
+			}
+		}
+	}
+done:
+    close(pipecli[0]);
+    close(pipecli[1]);
+    close(pipesrv[0]);
+    close(pipesrv[1]);
+    return status;
+}
 #else
 int negotiate(int clientfd, int proxyfd)
 {
@@ -169,7 +346,7 @@ int negotiate(int clientfd, int proxyfd)
     int timeout = timeo[CONNECT_L] * 1000;
     int sleeptime = 1000;
 
-#ifdef DEBUG_LVL > 1
+#if DEBUG_LVL > 1
     printf_peers(clientfd, proxyfd);
 #endif
 

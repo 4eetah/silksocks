@@ -28,11 +28,12 @@
 #define LISTENQ 8192
 #define NR_THREADS 1024
 #define NEEDAUTH 1
-#define BUFSIZE (1<<17)
+#define BUFSIZE (1<<20)
 #define DNSTBL_SIZE (1<<23)
 #define DNS_TTL 300 // sec
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
+#define min(a, b) (((a) < (b)) ? (a) : (b))
 
 #define sockADDR(sa) (((struct sockaddr*)sa)->sa_family == AF_INET6 ? \
         ((unsigned char*)&((struct sockaddr_in6*)sa)->sin6_addr) : \
