@@ -1,10 +1,11 @@
 silksocks
 =========
-Multithreaded SOCKS proxy manager
-The proxy manager is a socks proxy itself =)
+SOCKS proxy manager
+The proxy manager is a socks proxy itself
 
 The main things are:
 - ability to use db as a storage for info about further forwarding and authentication to proxy
+- db statistics
 - daemon for constantly updating db with available proxies + proxies info
 - threadpool / thread per connection policy
 - fast non-blocking forwarding
