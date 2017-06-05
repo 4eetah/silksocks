@@ -27,7 +27,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 			return(-1);
 
 	if (n == 0) {
-        do_debug2("connect(%d) completed immediately", sockfd);
+        SILK_LOG(INFO, "connect(%d) completed immediately", sockfd);
 		goto done;
     }
 
@@ -40,7 +40,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 again:
     if ( (n = select(sockfd+1, NULL, &wset, NULL,
                      nsec ? &tval : NULL)) == 0) {
-        do_debug2("select(%d), timeout expired", sockfd);
+        SILK_LOG(INFO, "select(%d), timeout expired", sockfd);
         close(sockfd);
         errno = ETIMEDOUT;
         return(-1);
@@ -56,7 +56,7 @@ again:
         len = sizeof(error);
         if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
             return(-1);
-        do_debug2("connect(%d) success", sockfd);
+        SILK_LOG(INFO"connect(%d) success", sockfd);
     } else {
         if (errno == EINPROGRESS)
             goto again;
@@ -81,6 +81,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 {
     struct pollfd fds[1];
     int flags;
+    int n;
 
 	if ((flags = fcntl(sockfd, F_GETFL, 0)) == -1)
         return -1;
@@ -88,18 +89,34 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
         return -1;
 
     if(connect(sockfd, saptr, salen) < 0)
-       if(errno != EAGAIN && errno != EINPROGRESS)
+        if(errno != EAGAIN && errno != EINPROGRESS) {
+            if (addr2logbuf(saptr) == NULL)
+                SILK_LOG_ERRNO(NOTICE, "connect error, bad address specified");
+            else
+                SILK_LOG_ERRNO(NOTICE, "connect error, while connectng to %s:%u", log_buf, ntohs(*sockPORT(saptr)));
             return -1;
+        }
 
     memset(fds, 0, sizeof(fds));
     fds[0].fd = sockfd;
     fds[0].events = POLLOUT;
 
-    if(poll(fds, 1, nsec * 1000) <= 0)
-       return -1;
-
-    if (fcntl(sockfd, F_SETFL, flags) == -1)
+again:
+    n = poll(fds, 1, nsec * 1000);
+    if (n == -1) {
+        if (errno == EINTR || errno == EAGAIN) {
+            usleep(SLEEPTIME);
+            goto again;
+        }
+        SILK_LOG_ERRNO(NOTICE, "poll error, while connecting to %s:%u", addr2logbuf(saptr), ntohs(*sockPORT(saptr)));
         return -1;
+    }
+    if (n == 0) {
+        SILK_LOG(NOTICE, "poll error, while connecting to %s:%u: timeout expired", addr2logbuf(saptr), ntohs(*sockPORT(saptr)));
+        return -1; 
+    }
+
+    fcntl(sockfd, F_SETFL, flags);
 
     return 0;
 }

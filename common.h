@@ -25,12 +25,15 @@
 #include "error.h"
 #include "thpool.h"
 
+#define PROG "silksocks"
 #define LISTENQ 8192
 #define NR_THREADS 1024
 #define NEEDAUTH 1
 #define BUFSIZE (1<<20)
 #define DNSTBL_SIZE (1<<23)
 #define DNS_TTL 300 // sec
+
+#define SLEEPTIME 1000
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -50,7 +53,6 @@
 
 #define sockFAMILY(sa) (((struct sockaddr*)sa)->sa_family)
 
-
 typedef enum {
     BYTE_S,
     BYTE_L,
@@ -62,7 +64,6 @@ typedef enum {
 } timeout;
 
 extern size_t timeo[LEN];
-extern int daemon_proc;
 
 struct hash_entry {
     unsigned long hash;
@@ -112,5 +113,6 @@ int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size);
 int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *val, time_t expires);
 int hashtbl_get(struct hash_table *hashtbl, unsigned char *key, unsigned char *val);
 int hashtbl_check(struct hash_table *hashtbl, unsigned char *key);
+const char *syslog_lvl2str(int level);
 
 #endif // COMMON_H

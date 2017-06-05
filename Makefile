@@ -3,8 +3,8 @@ HDRS := thpool.h error.h common.h
 OBJS := $(SRCS:.c=.o)
 OUT := silksocks
 LIBS := -pthread -lodbc
-#CFLAGS := -DUSEDB
-CFLAGS := -p -g -O0 -DDEBUG_LVL=2 -DUSEDB #-DUSE_SPLICE_NEGOTIATE #-DUSE_SELECT_NEGOTIATE #-DDISABLE_SOCK_TIMEO
+CFLAGS := -DUSEDB -DDEBUG
+#CFLAGS := -p -g -O0 -DDEBUG -DUSEDB #-DUSE_SPLICE_NEGOTIATE #-DUSE_SELECT_NEGOTIATE #-DDISABLE_SOCK_TIMEO
 
 all: $(OUT)
 
@@ -15,4 +15,4 @@ $(OUT): $(OBJS) $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LIBS)
 
 clean:
-	$(RM) $(OUT) *.o 
+	$(RM) $(OUT) *.o gmon.out

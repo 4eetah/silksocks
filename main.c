@@ -1,35 +1,12 @@
 #include "common.h"
 
-void daemon_init(const char *pname, int facility)
-{
-    int i;
-    pid_t pid;
-
-    if ((pid = fork()) < 0) {
-        perror("fork1");
-        exit(1);
-    }
-    if (pid != 0)
+void daemon_init() {
+    if (fork() > 0) {
         exit(0);
-
+    }
     setsid();
-    signal(SIGHUP, SIG_IGN);
-
-    if ((pid = fork()) < 0) {
-        perror("fork2");
-        exit(1);
-    }
-    if (pid != 0)
-        exit(0);
-
-    chdir("/");
-    umask(0);
-    
-    for (i = 0; i < 65535; ++i)
-        close(i);
-
-    daemon_proc = 1; // switch to syslog error.c
-    openlog(pname, LOG_PID, facility);
+    daemon_proc = 1;
+    openlog(PROG, LOG_PID, 0);
 }
 
 /* init threadpoll, db, cache etc */
@@ -74,7 +51,21 @@ void server_init()
 }
 
 void usage(char *prog) {
-    err_quit("Usage: %s [-d] socks.cfg\n\t-d daemonize process", prog);
+    err_quit("Usage: %s [-Ddvh] socks.cfg\n"
+            "\t-D\tdaemonize process\n"
+            "\t-d\tenables debug output\n"
+            "\t-v\tenables verbose output\n"
+            "\t-h\tprint this help and exit\n"
+            "\nlogging:\n"
+            "\t-v\terror\n"
+            "\t-vv\twarning\n"
+            "\t-vvv\tnotice\n"
+            "\t-vvvv\tinfo\n"
+            "\ndebug:\nthe program should be compiled with -DDEBUG\n"
+            "\t-d\t0 level\n"
+            "\t-dd\t1 level\n"
+            "\t-ddd\t2 level\n"
+            , prog);
 }
 
 int main(int argc, char **argv)
@@ -85,31 +76,46 @@ int main(int argc, char **argv)
     const char *host, *service;
     int opt;
     int daemon = 0;
+    int debug = -1, verbose = LOG_CRIT;
 
-    while ((opt = getopt(argc, argv, "d")) != -1) {
+    while ((opt = getopt(argc, argv, "Ddvh")) != -1) {
         switch (opt) {
-        case 'd':
+        case 'D':
             daemon = 1;
             break;
+        case 'd':
+            if (debug < 2)
+                debug++;
+            break;
+        case 'v':
+            if (verbose < LOG_INFO)
+                verbose++;
+            break;
+        case 'h':
         default:
             usage(argv[0]);
         }
     }
+
+    silk_log_level = verbose;
+    silk_debug_level = debug;
+
     if (argc - optind > 1)
         usage(argv[0]);
     sql_config = argv[optind];
 
-    server_init();
-
     if (daemon)
-        daemon_init(argv[0], 0);
+        daemon_init();
+
+    server_init();
 
     host = NULL;
     service = "1080";
     listenfd = tcp_listen(host, service, NULL);
 
     printf("Listening on:\t%s:%s\t%lu/%s\n", host ? host : "*", service, (unsigned long)getpid(), argv[0]);
-    
+    printf("verbosity level: %s\ndebug level: (%s) %d level\n\n", syslog_lvl2str(verbose), debug == -1 ? "disabled" : "enabled", debug);
+
     for (;;) {
         clilen = sizeof(cliaddr);
         if ((connfd = accept(listenfd, (struct sockaddr*)&cliaddr, &clilen)) == -1) {

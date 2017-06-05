@@ -15,7 +15,7 @@ static void extract_error(char *fn, SQLHANDLE handle, SQLSMALLINT type)
     SQLSMALLINT  len;
     SQLRETURN    ret;
 
-    fprintf(stderr,
+    SILK_LOG(ERR,
             "\n"
             "The driver reported the following diagnostics whilst running "
             "%s\n\n",
@@ -102,7 +102,7 @@ int sqlinit(char * s)
 char *sqlget_apppasswd(unsigned char *appuser)
 {
     if (!henv || !hdbc) {
-        do_debug("DB isn't initialized");
+        SILK_LOG(ERR, "DB isn't initialized");
         return NULL;
     }
 
@@ -136,7 +136,7 @@ char *sqlget_apppasswd(unsigned char *appuser)
 
     ret = SQLFetch(mystmt);
     if (ret == SQL_NO_DATA) {
-        do_debug("dbappauth: Specified `user`(%s) not found in `app` table", appuser);
+        SILK_LOG(ERR, "dbappauth: Specified `user`(%s) not found in `app` table", appuser);
         goto error;
     } else if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
         extract_error("dbappauth: SQLFetch error", mystmt, SQL_HANDLE_STMT);
@@ -156,7 +156,7 @@ error:
 int sqlget_proxycreds(unsigned char **puser, unsigned char **ppasswd, unsigned int ip, unsigned short port, unsigned int status)
 {
     if (!henv || !hdbc) {
-        do_debug("DB isn't initialized");
+        SILK_LOG(ERR, "DB isn't initialized");
         return -1;
     }
 
@@ -205,7 +205,7 @@ int sqlget_proxycreds(unsigned char **puser, unsigned char **ppasswd, unsigned i
 
     ret = SQLFetch(mystmt);
     if (ret == SQL_NO_DATA) {
-        do_debug("Specified `ip`(%u),`port`(%u),`status`(%d) not found in `proxy` table", ip, port, status);
+        SILK_LOG(ERR, "Specified `ip`(%u),`port`(%u),`status`(%d) not found in `proxy` table", ip, port, status);
         goto error;
     } else if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
         extract_error("dbget_credentials: SQLFetch", mystmt, SQL_HANDLE_STMT);

@@ -23,16 +23,23 @@ o  X'09' to X'FF' unassigned
 */
 
 const char *socks5_strstatus[] = {
-    "ok",
-    "server failure",
+    "succeded",
+    "general socks server failure",
     "connection not allowed by ruleset",
     "network unreachable",
     "host unreachable",
     "connection refused",
     "TTL expired",
     "command not supported",
-    "address type not supported",
 };
+const char socks5_status_unassigned[] = "xFF unassigned status";
+
+static const char *socks5_status2str(int status)
+{
+    if (status < 0 || status >= sizeof(socks5_strstatus))
+        return socks5_status_unassigned;
+    return socks5_strstatus[status];
+}
 
 struct socks5_cli {
     struct sockaddr_storage request;
@@ -46,12 +53,14 @@ struct socks5_cli {
 /* user-ip-port where ip is ipv4 in dotted format */
 static int strip_redirectaddr(struct socks5_cli *client)
 {
-    char ipbuf[16], portbuf[6];
+    char ipbuf[INET_ADDRSTRLEN], portbuf[PORTSTRLEN];
     unsigned char *login;
     struct sockaddr_in addr;
     char *err;
 
     login = client->user;
+
+    SILK_DBG(1, "redirect request: %s", login);
 
     if (!(login = strtok(login, "-")))
         return 1;
@@ -86,8 +95,9 @@ static int socks5_choosemethod(int clientfd, uint8_t *climethod)
     *climethod = 0;
 
     /* version */
-    if (readn_timeo(clientfd, &b, 1, timeo[BYTE_L], 0) != 1)
+    if (readn_timeo(clientfd, &b, 1, timeo[BYTE_L], 0) != 1) {
         return 1;
+    }
     if (b != 0x05)
         return 1;
 
@@ -277,7 +287,7 @@ int socks5_readrequest(struct socks5_cli *client)
         /* don't care of ipv6 for now */
         sstorage->ss_family = AF_INET;
         if (!hashtbl_get(&dns_table, buf, sockADDR(sstorage))) {
-            do_debug2("dns lookup [%s] -> null (fail)", buf);
+            SILK_DBG(2, "dns lookup [%s] -> null (fail)", buf);
             if ((addrin = host_serv(buf, NULL, AF_INET, SOCK_STREAM)) == NULL) 
                 return 4;
 
@@ -285,9 +295,9 @@ int socks5_readrequest(struct socks5_cli *client)
             memcpy(sstorage, addrin->ai_addr, addrin->ai_addrlen); 
             freeaddrinfo(addrin);
         }
-#if DEBUG_LVL > 1
+#ifdef DEBUG
         else {
-            do_debug2("dns lookup [%s] -> %s (success)", buf, inet_ntoa(*(struct in_addr*)sockADDR(sstorage)));
+            SILK_DBG(2, "dns lookup [%s] -> %s (success)", buf, inet_ntoa(*(struct in_addr*)sockADDR(sstorage)));
         }
 #endif
 
@@ -427,47 +437,49 @@ int socks5_run(int clientfd)
     client.clientfd = clientfd;
 
     if ((status = socks5_choosemethod(clientfd, &method)) != 0) {
-        do_debug2("clienfd(%d), socks5_choosemethod error, status(%d)", clientfd, status);
+        SILK_LOG(ERR, "client: %s fd(%d), socks5_choosemethod error, %s", peer2logbuf(clientfd, CLIENT), clientfd, socks5_status2str(status));
         goto done;
     }
 
     /* authentication */
     if (method == 0x02) {
         if ((status = socks5_readauth(&client)) != 0) {
-            do_debug2("clientfd(%d), socks5_readauth error, status(%d)", clientfd, status);
+            SILK_LOG(ERR, "client: %s fd(%d), socks5_readauth error, %s", peer2logbuf(clientfd, CLIENT), clientfd, socks5_status2str(status));
             goto done;
         }
         if ((status = strip_redirectaddr(&client)) != 0) {
-            do_debug2("clientfd(%d), strip_redirectaddr error, status(%d)", clientfd, status);
+            SILK_LOG(ERR, "client: %s fd(%d), strip_redirectaddr error, %s", peer2logbuf(clientfd, CLIENT), clientfd, socks5_status2str(status));
             goto done;
         }
         if ((status = socks5_doauth(&client)) != 0) {
-            do_debug2("clientfd(%d), socks5_doauth error, status(%d)", clientfd, status);
+            SILK_LOG(ERR, "client: %s fd(%d), socks5_doauth error, %s", peer2logbuf(clientfd, CLIENT), clientfd, socks5_status2str(status));
             goto done;
         }
     } else if (method && method != 0xFF) {
-        do_debug2("custom socks5 method? %d", method);
+        SILK_LOG(ERR, "client: %s fd(%d), custom socks5 method? %d", peer2logbuf(clientfd, CLIENT), clientfd, method);
         status = 7;
         goto done;
     }
 
     /* request from client */
     if ((status = socks5_readrequest(&client)) != 0) {
-        do_debug2("clientfd(%d), socks5_readrequest error, status(%d)", clientfd, status);
+        SILK_LOG(ERR, "client: %s fd(%d), socks5_readrequest error, %s", peer2logbuf(clientfd, CLIENT), clientfd, socks5_status2str(status));
         goto done;
     }
 
     switch (client.cmd) {
     case (0x01):
-        status = socks5_connectproxy(&client);
-        do_debug2("(%d,%d): socks5_connectproxy, success", client.clientfd, client.proxyfd);
+        if ((status = socks5_connectproxy(&client)) != 0) {
+            SILK_LOG(ERR, "(%d,%d): socks5_connectproxy %s error, %s", clientfd, client.proxyfd, peer2logbuf(client.proxyfd, SERVER), socks5_status2str(status));
+            socks5_writereply(&client, status);
+            goto done;
+        }
         /* reply to client */
         if ((status = socks5_writereply(&client, status)) != 0) {
-            do_debug2("(%d,%d): socks5_readrequest error, status(%d)", client.clientfd, client.proxyfd, status);
+            SILK_LOG(ERR, "(%d,%d) socks5_writereply to client %s error, %s", clientfd, client.proxyfd, peer2logbuf(clientfd, CLIENT), socks5_status2str(status));
             goto done;
         }
         if ((status = negotiate(client.clientfd, client.proxyfd)) != 0) {
-            do_debug3("(%d,%d): negotiate error, status(%d)", client.clientfd, client.proxyfd, status);
             goto done;
         }
 

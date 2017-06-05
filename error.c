@@ -1,8 +1,48 @@
 #include "error.h"
+#include <syslog.h>
 
-int		daemon_proc;		/* set nonzero by daemon_init() */
+int	daemon_proc;		/* set nonzero by daemon_init() */
+int silk_debug_level;
+int silk_log_level;
+__thread char log_buf[INET6_ADDRSTRLEN+PORTSTRLEN+1];
+
+const char *syslog_lvl[] = {
+    "emerg",
+    "alert",
+    "crit",
+    "err",
+    "warning",
+    "notice",
+    "info",
+    "debug",
+    "disabled",
+};
+const char *syslog_lvl2str(int level)
+{
+    if (level < 0 || level > LOG_DEBUG)
+        return syslog_lvl[sizeof(syslog_lvl)-1];
+    return syslog_lvl[level];
+}
 
 static void	err_doit(int, int, const char *, va_list);
+
+const char *peer2logbuf(int sockfd, PEER peer)
+{
+    int len=0;
+    struct sockaddr_storage addr;
+    socklen_t addrlen;
+    addrlen = sizeof(addr);
+
+    if (getpeername(sockfd, (struct sockaddr*)&addr, &addrlen) == -1) {
+        return NULL;
+    }
+    if (inet_ntop(sockFAMILY(&addr), sockADDR(&addr), log_buf, sizeof(log_buf)) == NULL) {
+        return NULL;
+    }
+    len = strlen(log_buf);
+    snprintf(log_buf+len, sizeof(log_buf)-len, ":%u", ntohs(*sockPORT(&addr)));
+    return log_buf;
+}
 
 /* Nonfatal error related to system call
  * Print message and return */
@@ -77,6 +117,15 @@ err_quit(const char *fmt, ...)
 
 /* Print message and return to caller
  * Caller specifies "errnoflag" and "level" */
+
+void log_doit(int errnoflag, int level, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    err_doit(errnoflag, level, fmt, ap);
+    va_end(ap);
+    return;
+}
 
 static void
 err_doit(int errnoflag, int level, const char *fmt, va_list ap)
