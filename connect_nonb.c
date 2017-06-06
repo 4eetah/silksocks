@@ -90,10 +90,7 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen, int 
 
     if(connect(sockfd, saptr, salen) < 0)
         if(errno != EAGAIN && errno != EINPROGRESS) {
-            if (addr2logbuf(saptr) == NULL)
-                SILK_LOG_ERRNO(NOTICE, "connect error, bad address specified");
-            else
-                SILK_LOG_ERRNO(NOTICE, "connect error, while connectng to %s:%u", log_buf, ntohs(*sockPORT(saptr)));
+            SILK_LOG_ERRNO(NOTICE, "connect error");
             return -1;
         }
 
@@ -108,11 +105,11 @@ again:
             usleep(SLEEPTIME);
             goto again;
         }
-        SILK_LOG_ERRNO(NOTICE, "poll error, while connecting to %s:%u", addr2logbuf(saptr), ntohs(*sockPORT(saptr)));
+        SILK_LOG_ERRNO(NOTICE, "poll error");
         return -1;
     }
     if (n == 0) {
-        SILK_LOG(NOTICE, "poll error, while connecting to %s:%u: timeout expired", addr2logbuf(saptr), ntohs(*sockPORT(saptr)));
+        SILK_LOG(NOTICE, "poll error, timeout expired");
         return -1; 
     }
 

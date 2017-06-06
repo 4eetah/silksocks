@@ -73,7 +73,7 @@ int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *v
 
 #ifdef DEBUG
     char buf[INET6_ADDRSTRLEN];
-    SILK_DBG(1, "hashtbl put: [%s] = %s, idx = %lu", key, (hashtbl->record_size == 4 ? \
+    SILK_LOG(DEBUG, "hashtbl put: [%s] = %s, idx = %lu", key, (hashtbl->record_size == 4 ? \
             inet_ntop(AF_INET, (void*)val, buf, sizeof(buf)) : inet_ntop(AF_INET6, (void*)val, buf, sizeof(buf))), idx);
 #endif            
     now = time(NULL);

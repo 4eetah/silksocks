@@ -65,6 +65,14 @@ typedef enum {
 
 extern size_t timeo[LEN];
 
+struct socks5_cli {
+    struct sockaddr_storage request;
+    unsigned char user[256], passwd[256];
+    int clientfd, proxyfd;
+    struct sockaddr_in clipeer, srvpeer;
+    uint8_t cmd;
+};
+
 struct hash_entry {
     unsigned long hash;
     time_t expires;
@@ -114,5 +122,6 @@ int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *v
 int hashtbl_get(struct hash_table *hashtbl, unsigned char *key, unsigned char *val);
 int hashtbl_check(struct hash_table *hashtbl, unsigned char *key);
 const char *syslog_lvl2str(int level);
+const char *addr2logbuf(struct socks5_cli *cli);
 
 #endif // COMMON_H

@@ -121,8 +121,10 @@ int main(int argc, char **argv)
         if ((connfd = accept(listenfd, (struct sockaddr*)&cliaddr, &clilen)) == -1) {
             if (errno == EINTR)
                 continue;
-            else
-                err_ret("accept");
+            else {
+                SILK_LOG(ERR, "accept error on fd(%d)", connfd);
+                continue;
+            }
         }
 
 /* nasty cast warning =) */

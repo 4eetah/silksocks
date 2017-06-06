@@ -4,7 +4,7 @@
 int	daemon_proc;		/* set nonzero by daemon_init() */
 int silk_debug_level;
 int silk_log_level;
-__thread char log_buf[INET6_ADDRSTRLEN+PORTSTRLEN+1];
+__thread char log_buf[256];
 
 const char *syslog_lvl[] = {
     "emerg",
@@ -25,6 +25,28 @@ const char *syslog_lvl2str(int level)
 }
 
 static void	err_doit(int, int, const char *, va_list);
+
+const char *addr2logbuf(struct socks5_cli *cli)
+{
+    int len=0;
+    char buf[INET6_ADDRSTRLEN+6];
+    if (!inet_ntop(sockFAMILY(&cli->clipeer), sockADDR(&cli->clipeer), buf, sizeof(buf)))
+        len = sprintf(log_buf, "%-25s", "(unconnected)");
+    else {
+        sprintf(buf+strlen(buf), ":%u", ntohs(*sockPORT(&cli->clipeer)));
+        len = sprintf(log_buf, "%-25s", buf);
+    }
+    strcat(log_buf, "-");
+    len++;
+
+    if (!inet_ntop(sockFAMILY(&cli->srvpeer), sockADDR(&cli->srvpeer), buf, sizeof(buf)))
+        len += sprintf(log_buf+len, "%25s", "(unconnected)");
+    else {
+        sprintf(buf+strlen(buf), ":%u", ntohs(*sockPORT(&cli->srvpeer)));
+        len = sprintf(log_buf+len, "%25s", buf);
+    }
+    return log_buf;
+}
 
 const char *peer2logbuf(int sockfd, PEER peer)
 {

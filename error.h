@@ -9,14 +9,18 @@
 extern int daemon_proc;
 extern int silk_log_level;
 extern int silk_debug_level;
-extern __thread char log_buf[INET6_ADDRSTRLEN+PORTSTRLEN+1];
+extern __thread char log_buf[256];
 
 typedef enum {
-    CLIENT,
-    SERVER,
+    CLIENT, // communication with client
+    SERVER, // communication with proxy
 } PEER;
+typedef enum {
+    SEND,
+    RECV,
+} DIRECTION;
+
 /* log_buf per thread storage */
-#define addr2logbuf(sa) inet_ntop(sockFAMILY(sa), sockADDR(sa), log_buf, sizeof(log_buf))
 const char *peer2logbuf(int sockfd, PEER p);
 void log_doit(int errnoflag, int level, const char *fmt, ...);
 
@@ -26,16 +30,16 @@ void log_doit(int errnoflag, int level, const char *fmt, ...);
 * 2
 */
 #ifdef DEBUG
-#define SILK_DBG(dbg_level, fmt, ...) \
+#define SILK_DBG(dbg_level, client, peer, direction, fmt, ...) \
     do { \
         if (dbg_level <= silk_debug_level) \
-            log_doit(0, LOG_DEBUG, "%s [%s] " fmt, gf_time(), __func__, ##__VA_ARGS__); \
+            log_doit(0, LOG_DEBUG, "%s %45s %s %s [%s] " fmt, gf_time(), addr2logbuf(client), peer?"SERVER":"CLIENT", direction?"RECV":"SEND", __func__, ##__VA_ARGS__); \
     } while (0)
 
-#define SILK_DBG_ERRNO(dbg_level, fmt, ...) \
+#define SILK_DBG_ERRNO(dbg_level, client, peer, direction, fmt, ...) \
     do { \
         if (dbg_level <= silk_debug_level) \
-            log_doit(1, LOG_DEBUG, "%s [%s] " fmt, gf_time(), __func__, ##__VA_ARGS__); \
+            log_doit(1, LOG_DEBUG, "%s %s %s %s [%s] " fmt, gf_time(), addr2logbuf(client), peer?"SERVER":"CLIENT", direction?"RECV":"SEND", __func__, ##__VA_ARGS__); \
     } while (0)
 #else
 #define SILK_DBG(level, fmt, ...)

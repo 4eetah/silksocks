@@ -44,14 +44,14 @@ int cache_putip(uint32_t key, unsigned char *user, unsigned char *passwd)
     val->user = strdup(user);
     val->passwd = strdup(passwd);
     map_ip2creds[id] = val;
-    SILK_DBG(2, "map_ip2creds[%lu] = {%s,%s}, key = %u", id, val->user, val->passwd, key);
+    SILK_LOG(INFO, "map_ip2creds[%lu] = {%s,%s}, key = %u", id, val->user, val->passwd, key);
     return 0;
 }
 
 struct ip2creds *cache_getip(uint32_t key)
 {
     size_t id = idx_ipmap(hash32(key));
-    SILK_DBG(2, "map_ip2creds[%lu] = {%s,%s}, key = %u", id, map_ip2creds[id] ? map_ip2creds[id]->user : NULL,
+    SILK_LOG(INFO, "map_ip2creds[%lu] = {%s,%s}, key = %u", id, map_ip2creds[id] ? map_ip2creds[id]->user : NULL,
                                                 map_ip2creds[id] ? map_ip2creds[id]->passwd : NULL, key);
     return map_ip2creds[id];
 }
@@ -71,14 +71,14 @@ int cache_putapp(unsigned char *app, unsigned char *passwd)
 {
     size_t id = idx_appmap(hashStr(app));
     map_app2pass[id] = strdup(passwd);
-    SILK_DBG(2, "map_app2pass[%lu] = %s, key = %s", id, map_app2pass[id], app);
+    SILK_LOG(INFO, "map_app2pass[%lu] = %s, key = %s", id, map_app2pass[id], app);
     return 0;
 }
 
 char *cache_getapp(unsigned char *app)
 {
     size_t id = idx_appmap(hashStr(app));
-    SILK_DBG(2, "map_app2pass[%lu] = %s, key = %s", id, map_app2pass[id], app);
+    SILK_LOG(INFO, "map_app2pass[%lu] = %s, key = %s", id, map_app2pass[id], app);
     return map_app2pass[id];
 }
 

@@ -14,5 +14,7 @@ tags: *.c *.h
 $(OUT): $(OBJS) $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LIBS)
 
+rebuild: clean all
+
 clean:
 	$(RM) $(OUT) *.o gmon.out
