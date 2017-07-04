@@ -46,7 +46,7 @@ static int strip_redirectaddr(struct socks5_cli *client)
 {
     char ipbuf[INET_ADDRSTRLEN], portbuf[PORTSTRLEN];
     unsigned char *login;
-    char *err;
+    char *ptr;
     int clientfd = client->clientfd;
 
     login = client->user;
@@ -54,18 +54,18 @@ static int strip_redirectaddr(struct socks5_cli *client)
 
     SILK_DBG(1, client, CLIENT, SEND, "redirect request: %s", login);
 
-    if (!(login = strtok(login, "-"))) {
+    if (!(login = strtok_r(login, "-", &ptr))) {
         SILK_DBG(1, client, CLIENT, SEND, "wrong redirect addr format(should be user-ip-port)");
         return 1;
     }
-    if (!(login = strtok(NULL, "-"))) {
+    if (!(login = strtok_r(NULL, "-", &ptr))) {
         SILK_DBG(1, client, CLIENT, SEND, "wrong redirect addr format(should be user-ip-port)");
         return 1;
     }
     strncpy(ipbuf, login, 15);
     ipbuf[15] = 0;
 
-    if (!(login = strtok(NULL, "-"))) {
+    if (!(login = strtok_r(NULL, "-", &ptr))) {
         SILK_DBG(1, client, CLIENT, SEND, "wrong redirect addr format(should be user-ip-port)");
         return 1;
     }
@@ -77,8 +77,8 @@ static int strip_redirectaddr(struct socks5_cli *client)
         return 1;
     }
     
-    client->srvpeer.sin_port = htons(strtol(portbuf, &err, 10));
-    if (*err) {
+    client->srvpeer.sin_port = htons(strtol(portbuf, &ptr, 10));
+    if (*ptr) {
         SILK_DBG(1, client, CLIENT, SEND, "unable to convert specified proxy port(%s)", portbuf); 
         return 1;
     }
