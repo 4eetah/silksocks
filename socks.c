@@ -184,16 +184,15 @@ static int socks5_readauth(struct socks5_cli *client)
 /* check app authentication from db */
 static int socks5_doauth(struct socks5_cli *client)
 {
-    char *apppasswd;
+    unsigned char *apppasswd;
 
 #ifdef USEDB
-    apppasswd = cache_getapp(client->user);
-    if (!apppasswd) {
+    if (!cache_getapp(&cacheapp, client->user, &apppasswd)) {
         if ((apppasswd = sqlget_apppasswd(client->user)) == NULL) {
             SILK_DBG(1, client, CLIENT, SEND, "unable to dbget app passwd for user(%s)", client->user);
             return 5;
         }
-        cache_putapp(client->user, apppasswd);
+        cache_putapp(&cacheapp, client->user, apppasswd);
     }
 #else
     apppasswd = strdup("pwd");
@@ -476,17 +475,12 @@ static int socks5_connectproxy(struct socks5_cli *client)
     }
 
 #ifdef USEDB
-    struct ip2creds *val;
-    val = cache_getip(proxyip);
-    if (!val) {
+    if (!cache_getip(&cacheip, proxyip, &proxyuser, &proxypasswd)) {
         if (sqlget_proxycreds(&proxyuser, &proxypasswd, proxyip, proxyport, 1) == -1) {
             SILK_DBG(1, client, SERVER, SEND, "unable to dbget user/passwd for proxy server");
             return 4;
         }
-        cache_putip(proxyip, proxyuser, proxypasswd);
-    } else {
-        proxyuser = val->user;
-        proxypasswd = val->passwd;
+        cache_putip(&cacheip, proxyip, proxyuser, proxypasswd);
     }
 #else
     proxyuser = strdup("usr");

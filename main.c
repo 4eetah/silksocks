@@ -48,6 +48,11 @@ void server_init()
     if (hashtbl_init(&dns6_table, DNSTBL_SIZE, 16) == -1)
         err_quit("Failed to initialize dns6_table");
     */
+
+    if (!cache_initip(&cacheip, CACHEIP_INITSZ))
+        err_quit("Failed to initialize ip cache");
+    if (!cache_initapp(&cacheapp, CACHEAP_INITSZ))
+        err_quit("Failed to initialize app cache");
 }
 
 void usage(char *prog) {

@@ -32,6 +32,8 @@
 #define BUFSIZE (1<<20)
 #define DNSTBL_SIZE (1<<23)
 #define DNS_TTL 300 // sec
+#define CACHEIP_INITSZ 1024
+#define CACHEAP_INITSZ 16
 
 #define SLEEPTIME 1000
 
@@ -92,9 +94,30 @@ struct hash_table {
 extern struct hash_table dns_table;
 extern struct hash_table dns6_table;
 
+extern struct cache_ip cacheip;
+extern struct cache_ap cacheapp;
+
 struct ip2creds {
+    uint32_t ipkey;
     unsigned char *user;
     unsigned char *passwd;
+};
+struct app2passwd {
+    unsigned long appkey;
+    unsigned char *passwd;
+};
+
+struct cache_ip {
+    size_t elements;
+    size_t size;
+    struct ip2creds *map;
+    pthread_mutex_t mux;
+};
+struct cache_ap {
+    size_t elements;
+    size_t size;
+    struct app2passwd *map;
+    pthread_mutex_t mux;
 };
 
 int negotiate(int clientfd, int proxyfd);
@@ -107,16 +130,24 @@ ssize_t writen_timeo(int fd, const void *vptr, size_t n, long sec, long usec);
 int tcp_listen(const char *host, const char *serv, socklen_t *addrlenp);
 char *gf_time();
 void proxy_start(void *arg);
+
 int sqlinit(char *s);
 void sqlclose();
 char *sqlget_apppasswd(unsigned char *appuser);
 int sqlget_proxycreds(unsigned char **puser, unsigned char **ppasswd, unsigned int ip, unsigned short port, unsigned int status);
-int cache_putip(uint32_t key, unsigned char *user, unsigned char *passwd);
-struct ip2creds *cache_getip(uint32_t key);
-void cache_freeip();
-int cache_putapp(unsigned char *app, unsigned char *passwd);
-char *cache_getapp(unsigned char *app);
-void cache_freeapp();
+
+static int cache_resizeip(struct cache_ip *c, size_t newsize);
+void cache_putip(struct cache_ip *c, uint32_t key, unsigned char *user, unsigned char *passwd);
+int cache_getip(struct cache_ip *c, uint32_t key, unsigned char **user, unsigned char **passwd);
+static int cache_resizeapp(struct cache_ap *c, size_t newsize);
+void cache_putapp(struct cache_ap *c, unsigned char *app, unsigned char *passwd);
+static void cache_putapp_hash(struct cache_ap *c, unsigned long hash, unsigned char *passwd);
+int cache_getapp(struct cache_ap *c, unsigned char *app, unsigned char **passwd);
+int cache_initip(struct cache_ip *c, size_t initsize);
+int cache_initapp(struct cache_ap *c, size_t initsize);
+static void cache_printip(struct cache_ip *c);
+static void cache_printapp(struct cache_ap *c);
+
 int hashtbl_init(struct hash_table *hashtbl, size_t size, size_t record_size);
 int hashtbl_put(struct hash_table *hashtbl, unsigned char *key, unsigned char *val, time_t expires);
 int hashtbl_get(struct hash_table *hashtbl, unsigned char *key, unsigned char *val);
